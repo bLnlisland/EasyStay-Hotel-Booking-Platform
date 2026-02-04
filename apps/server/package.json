@@ -6,7 +6,13 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:init": "node scripts/db-init.js init",
+    "db:seed": "node scripts/db-init.js seed",
+    "db:reset": "node scripts/db-init.js reset",
+    "db:backup": "node scripts/db-init.js backup",
+    "db:test": "node scripts/db-test.js",
+    "migrate": "node scripts/db-init.js init && node scripts/db-init.js seed"
   },
   "keywords": [
     "hotel",
@@ -28,6 +34,7 @@
     "sequelize": "^6.35.0"
   },
   "devDependencies": {
+    "mysqldump": "^3.2.0",
     "nodemon": "^3.0.1"
   }
 }

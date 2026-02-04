@@ -57,6 +57,7 @@ RoomType.init({
 
 RoomType.associate = (models) => {
   RoomType.belongsTo(models.Hotel, { foreignKey: 'hotel_id', as: 'hotel' });
+  RoomType.hasMany(models.Booking, { foreignKey: 'room_type_id', as: 'bookings' });
 };
 
 RoomType.prototype.getDiscountedPrice = function() {

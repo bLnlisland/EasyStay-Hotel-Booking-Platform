@@ -77,6 +77,8 @@ User.init({
 
 User.associate = (models) => {
   User.hasMany(models.Hotel, { foreignKey: 'merchant_id', as: 'hotels' });
+  User.hasMany(models.Booking, { foreignKey: 'user_id', as: 'bookings' });
+  User.hasMany(models.AuditLog, { foreignKey: 'admin_id', as: 'audit_logs' });
 };
 
 module.exports = User;
