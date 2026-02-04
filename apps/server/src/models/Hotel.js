@@ -103,6 +103,8 @@ Hotel.associate = (models) => {
   Hotel.hasMany(models.RoomType, { foreignKey: 'hotel_id', as: 'room_types' });
   Hotel.hasMany(models.HotelImage, { foreignKey: 'hotel_id', as: 'images' });
   Hotel.hasMany(models.HotelTag, { foreignKey: 'hotel_id', as: 'tags' });
+  Hotel.hasMany(models.Booking, { foreignKey: 'hotel_id', as: 'bookings' });
+  Hotel.hasMany(models.AuditLog, { foreignKey: 'hotel_id', as: 'audit_logs' });
 };
 
 // 类方法：根据状态获取酒店
