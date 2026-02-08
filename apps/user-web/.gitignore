@@ -2,8 +2,6 @@
 
 # dependencies
 /node_modules
-**/node_modules/ 
-#忽略所有子项目里的 node_modules
 /.pnp
 .pnp.js
 
