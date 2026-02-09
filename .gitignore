@@ -21,3 +21,12 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Windows PowerShell 命令（创建.gitignore并写入内容）
+@"
+node_modules/
+build/
+dist/
+.env
+.vscode/
+"@ | Out-File -FilePath .gitignore -Encoding utf8
