@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+**/node_modules/ 
+#忽略所有子项目里的 node_modules
 /.pnp
 .pnp.js
 
@@ -23,10 +25,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # Windows PowerShell 命令（创建.gitignore并写入内容）
-@"
-node_modules/
-build/
+
 dist/
-.env
 .vscode/
-"@ | Out-File -FilePath .gitignore -Encoding utf8

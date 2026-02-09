@@ -1,0 +1,32 @@
+export const mockHotels = [
+  {
+    id: 1,
+    name_zh: "易宿·江景酒店",
+    city: "武汉",
+    star_rating: 4,
+    min_price: 299,
+    address: "武昌区临江大道 88 号",
+    location: { lat: 30.5928, lng: 114.3055 },
+    available: { from: "2026-02-01", to: "2026-12-31" },
+  },
+  {
+    id: 2,
+    name_zh: "易宿·城市轻奢",
+    city: "深圳",
+    star_rating: 5,
+    min_price: 588,
+    address: "福田区中心路 66 号",
+    location: { lat: 22.5431, lng: 114.0579 },
+    available: { from: "2026-03-01", to: "2026-10-31" },
+  },
+  {
+    id: 3,
+    name_zh: "易宿·滨海假日",
+    city: "深圳",
+    star_rating: 4,
+    min_price: 399,
+    address: "南山区海景路 1 号",
+    location: { lat: 22.5333, lng: 113.9304 },
+    available: { from: "2026-01-15", to: "2026-12-15" },
+  },
+];
