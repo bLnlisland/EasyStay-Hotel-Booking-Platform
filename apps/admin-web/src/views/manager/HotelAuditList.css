@@ -1,0 +1,19 @@
+/* 酒店审核列表页样式 */
+.ant-card {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+
+.ant-table {
+  --ant-table-header-text-color: #333;
+  --ant-table-row-hover-bg: #f8f9fa;
+}
+
+.ant-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.ant-btn-link {
+  padding: 0;
+}

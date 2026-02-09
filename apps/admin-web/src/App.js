@@ -1,12 +1,14 @@
 import React from 'react';
-import { RouterProvider } from 'react-router-dom'; // 路由提供者
-import router from './router'; // 引入配置好的路由
-import 'antd/dist/antd.css'; // 全局引入AntD4样式，团队所有组件都能直接用
-import './App.css';
+import { StrictMode } from 'react';
+import AppRouter from './router'; // 只导入路由组件
 
+// 核心：App组件只渲染路由，无其他内容
 function App() {
-  // 路由占位，所有页面都在这里渲染
-  return <RouterProvider router={router} />;
+  return (
+    <StrictMode>
+      <AppRouter /> {/* 路由是唯一根节点，确保上下文优先 */}
+    </StrictMode>
+  );
 }
 
 export default App;

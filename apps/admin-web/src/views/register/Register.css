@@ -1,0 +1,52 @@
+/* 服务商注册页面样式 */
+.server-register-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 50px auto;
+  padding: 0 20px;
+}
+
+.register-card {
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.register-title {
+  text-align: center;
+  margin-bottom: 30px !important;
+  color: #1f2937;
+}
+
+.success-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  background-color: #f0f9ff;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  color: #10b981;
+  font-size: 16px;
+}
+
+.success-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.upload-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 适配不同屏幕尺寸 */
+@media (max-width: 768px) {
+  .server-register-container {
+    margin: 20px auto;
+  }
+  .register-card {
+    padding: 20px;
+  }
+}
