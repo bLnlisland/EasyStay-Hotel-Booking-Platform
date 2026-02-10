@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 require('dotenv').config();
-
+//数据库配置，从环境变量读取，提供默认值
 class DatabaseManager {
   constructor() {
     this.config = {
@@ -13,7 +13,7 @@ class DatabaseManager {
       database: process.env.DB_NAME || 'hotel_booking'
     };
   }
-
+//useDatabase - 是否连接到具体数据库
   async connect(useDatabase = true) {
     const connectionConfig = {
       host: this.config.host,
@@ -35,7 +35,7 @@ class DatabaseManager {
       console.log('✅ 已连接到MySQL服务器');
     }
   }
-
+  //初始化数据库结构
   async initDatabase() {
     try {
       // 读取SQL文件
@@ -215,18 +215,18 @@ class DatabaseManager {
       throw error;
     }
   }
-
+//将当前数据库导出为 SQL 文件
   async backupDatabase() {
     const backupDir = path.join(__dirname, '../backups');
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
     
+    // 生成时间戳作为备份文件名
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFile = path.join(backupDir, `backup-${timestamp}.sql`);
-    
     const mysqldump = require('mysqldump');
-    
+    // 使用 mysqldump 工具备份数据库
     await mysqldump({
       connection: {
         host: this.config.host,

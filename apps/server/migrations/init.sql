@@ -1,3 +1,4 @@
+DROP DATABASE IF EXISTS hotel_booking;
 -- 创建数据库
 CREATE DATABASE IF NOT EXISTS hotel_booking DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE hotel_booking;
@@ -5,14 +6,6 @@ USE hotel_booking;
 -- 使用数据库
 USE hotel_booking;
 
--- 删除所有存在的表（按依赖顺序）
-DROP TRIGGER IF EXISTS before_booking_insert;
-DROP TABLE IF EXISTS audit_logs;
-DROP TABLE IF EXISTS bookings;
-DROP TABLE IF EXISTS hotel_images;
-DROP TABLE IF EXISTS room_types;
-DROP TABLE IF EXISTS hotels;
-DROP TABLE IF EXISTS users;
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -27,9 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   last_login DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_role (role),
-  INDEX idx_email (email),
-  INDEX idx_username (username)
+  INDEX idx_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 酒店表
@@ -47,7 +38,7 @@ CREATE TABLE IF NOT EXISTS hotels (
   star_rating INT DEFAULT 3 CHECK (star_rating BETWEEN 1 AND 5),
   opening_year INT,
   facilities JSON DEFAULT (JSON_ARRAY()),
-  status ENUM('draft', 'under_review', 'approved', 'rejected', 'offline') DEFAULT 'draft' NOT NULL,
+  status ENUM('draft', 'pending','under_review', 'approved', 'rejected', 'offline') DEFAULT 'draft' NOT NULL,
   rejection_reason TEXT,
   contact_phone VARCHAR(20),
   contact_email VARCHAR(100),
@@ -125,8 +116,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   INDEX idx_user_id (user_id),
   INDEX idx_hotel_id (hotel_id),
   INDEX idx_status (status),
-  INDEX idx_payment_status (payment_status),
-  INDEX idx_booking_reference (booking_reference)
+  INDEX idx_payment_status (payment_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 审核日志表

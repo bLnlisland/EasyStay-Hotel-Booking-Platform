@@ -55,15 +55,8 @@ class HotelController {
         }
       }
 
-      // 如果有入住和离店日期，添加可用性检查
-      let dateAvailabilityFilter = null;
-      if (check_in && check_out) {
-        console.log(`日期筛选: ${check_in} 到 ${check_out}`);
-        // 这里可以添加日期冲突检查逻辑
-        // 由于我们还没有预订系统，暂时跳过日期冲突检查
-      }
-
-      // 构建查询条件
+      // ========== 简化：价格筛选（内存层） ==========
+      // 先查询所有符合条件的酒店
       const includeConditions = [
         {
           model: HotelImage,
@@ -77,7 +70,7 @@ class HotelController {
           as: 'room_types',
           where: {
             is_available: true,
-            max_guests: { [Op.gte]: parseInt(guests) }
+            max_guests: { [Op.gte]: parseInt(guests) } // 满足入住要求
           },
           required: false
         }
@@ -94,47 +87,37 @@ class HotelController {
         subQuery: false // 避免子查询，提高性能
       };
 
-      // 查询酒店（先不包含价格筛选）
+      // 查询酒店
       const { count: totalCount, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
 
       // 处理返回数据，计算最低价格和折扣信息
-      const processedHotels = hotels.map(hotel => {
-        return this.processHotelData(hotel);
+      let processedHotels = hotels.map(hotel => {
+        return HotelController.processHotelData(hotel);
       });
 
-      // 价格筛选（在内存中处理，因为需要计算折扣价）
-      let filteredHotels = processedHotels;
-
-      if (min_price) {
-        const minPriceNum = parseFloat(min_price);
-        filteredHotels = filteredHotels.filter(hotel =>
-          hotel.min_price !== null && hotel.min_price >= minPriceNum
-        );
+      // ========== 价格筛选（内存层） ==========
+      if (min_price || max_price) {
+        const minPriceNum = min_price ? parseFloat(min_price) : 0;
+        const maxPriceNum = max_price ? parseFloat(max_price) : Infinity;
+        
+        processedHotels = processedHotels.filter(hotel => {
+          if (hotel.min_price === null || hotel.min_price === undefined) return false;
+          
+          const price = hotel.min_price;
+          return price >= minPriceNum && price <= maxPriceNum;
+        });
       }
 
-      if (max_price) {
-        const maxPriceNum = parseFloat(max_price);
-        filteredHotels = filteredHotels.filter(hotel =>
-          hotel.min_price !== null && hotel.min_price <= maxPriceNum
-        );
-      }
-
-      // 重新计算分页信息
-      const filteredCount = filteredHotels.length;
-      const totalPages = Math.ceil(filteredCount / limit);
-
-      // 应用分页
-      const startIndex = offset;
-      const endIndex = Math.min(startIndex + parseInt(limit), filteredCount);
-      const paginatedHotels = filteredHotels.slice(startIndex, endIndex);
-
+      // 直接使用数据库查询结果计算分页
+      const totalPages = Math.ceil(totalCount / limit);
+      
       // 构建响应
       const response = {
         success: true,
         data: {
-          hotels: paginatedHotels,
+          hotels: processedHotels,
           pagination: {
-            total: filteredCount,
+            total: totalCount,
             page: parseInt(page),
             limit: parseInt(limit),
             total_pages: totalPages,
@@ -171,7 +154,7 @@ class HotelController {
     try {
       const { id } = req.params;
       const { check_in, check_out, guests = 2 } = req.query;
-
+      // 使用findByPk获取单个酒店，包含所有关联数据
       const hotel = await Hotel.findByPk(id, {
         include: [
           {
@@ -182,7 +165,7 @@ class HotelController {
           {
             model: HotelImage,
             as: 'images',
-            order: [['order', 'ASC'], ['is_main', 'DESC']]
+            order: [['order', 'ASC'], ['is_main', 'DESC']] // 按顺序排序，主图优先
           },
           {
             model: RoomType,
@@ -192,14 +175,16 @@ class HotelController {
           }
         ]
       });
-
+      
+      // 酒店不存在检查
       if (!hotel) {
         return res.status(404).json({
           success: false,
           message: '酒店不存在'
         });
       }
-
+      
+      // 权限检查：非审核通过的酒店只允许管理员或商户本人查看
       if (hotel.status !== 'approved' && req.user?.role !== 'admin' && req.user?.id !== hotel.merchant_id) {
         return res.status(403).json({
           success: false,
@@ -208,7 +193,7 @@ class HotelController {
       }
 
       // 处理酒店数据
-      const hotelData = this.processHotelData(hotel);
+      const hotelData = HotelController.processHotelData(hotel);
 
       // 处理房型详细信息
       if (hotelData.room_types) {
@@ -307,7 +292,7 @@ class HotelController {
         hotel_count: parseInt(city.get('hotel_count')),
         min_price: city.get('min_price') ? parseFloat(city.get('min_price')).toFixed(2) : null
       }));
-
+      
       res.json({
         success: true,
         data: formattedCities
@@ -332,7 +317,7 @@ class HotelController {
         where.city = city;
       }
 
-      // 使用更高效的查询方式
+      // 使用子查询获取每个酒店的最低价格
       const hotelsWithPrice = await Hotel.findAll({
         where,
         include: [{
@@ -359,11 +344,13 @@ class HotelController {
           null
         )
       });
-
+      
+      // 提取所有价格
       const prices = hotelsWithPrice
         .map(h => parseFloat(h.get('min_price')))
         .filter(price => !isNaN(price) && price > 0);
-
+      
+      // 如果没有数据，返回默认区间
       if (prices.length === 0) {
         return res.json({
           success: true,
@@ -380,7 +367,8 @@ class HotelController {
           }
         });
       }
-
+      
+      // 计算价格范围
       const minPrice = Math.floor(Math.min(...prices));
       const maxPrice = Math.ceil(Math.max(...prices));
       
@@ -395,7 +383,7 @@ class HotelController {
         
         // 如果这是最后一个区间，确保包含最大值
         const actualEnd = (i === rangeCount - 1) ? maxPrice : end;
-        
+        // 统计每个区间的酒店数量
         const count = prices.filter(price => price >= start && price < actualEnd).length;
         
         if (count > 0 || i === 0 || i === rangeCount - 1) {
@@ -414,7 +402,7 @@ class HotelController {
           min_price: minPrice,
           max_price: maxPrice,
           ranges,
-          suggestion_ranges: [
+          suggestion_ranges: [ 
             { min: 0, max: 300, label: '经济型 (¥0 - ¥300)' },
             { min: 300, max: 600, label: '舒适型 (¥300 - ¥600)' },
             { min: 600, max: 1000, label: '豪华型 (¥600 - ¥1000)' },
@@ -442,41 +430,48 @@ class HotelController {
         min_price,
         max_price,
         star_rating,
-        city
+        city,
+        guests = 2
       } = req.query;
-
-      if (!keyword) {
+      
+      // 修改验证逻辑：允许只搜索城市
+      if (!keyword && !city) {
         return res.status(400).json({
           success: false,
-          message: '请输入搜索关键词'
+          message: '请输入搜索关键词或城市'
         });
       }
-
+      
       const offset = (parseInt(page) - 1) * parseInt(limit);
-
-      // 基础搜索条件
+      
+      // 修改搜索条件构建
       const where = {
-        status: 'approved',
-        [Op.or]: [
+        status: 'approved'
+      };
+      
+      // 如果有关键词，使用多字段搜索
+      if (keyword) {
+        where[Op.or] = [
           { name_zh: { [Op.like]: `%${keyword}%` } },
           { name_en: { [Op.like]: `%${keyword}%` } },
           { city: { [Op.like]: `%${keyword}%` } },
           { address: { [Op.like]: `%${keyword}%` } },
           { description: { [Op.like]: `%${keyword}%` } }
-        ]
-      };
-
+        ];
+      }
+      
+      // 如果指定了城市，精确搜索城市
+      if (city && !keyword) {
+        where.city = { [Op.like]: `%${city}%` };
+      }
+       
       // 添加星级筛选
       if (star_rating) {
         where.star_rating = parseInt(star_rating);
       }
-
-      // 添加城市筛选
-      if (city) {
-        where.city = { [Op.like]: `%${city}%` };
-      }
-
-      const { count, rows: hotels } = await Hotel.findAndCountAll({
+      
+      // 构建查询选项
+      const queryOptions = {
         where,
         include: [
           {
@@ -497,45 +492,36 @@ class HotelController {
         offset,
         limit: parseInt(limit),
         subQuery: false
-      });
+      };
+      
+      // 查询数据
+      const { count, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
 
       // 处理酒店数据
-      const processedHotels = hotels.map(hotel => {
-        const hotelData = this.processHotelData(hotel);
-        return hotelData;
+      let processedHotels = hotels.map(hotel => {
+        return HotelController.processHotelData(hotel);
       });
 
-      // 应用价格筛选
-      let filteredHotels = processedHotels;
-      
-      if (min_price) {
-        const minPriceNum = parseFloat(min_price);
-        filteredHotels = filteredHotels.filter(hotel =>
-          hotel.min_price !== null && hotel.min_price >= minPriceNum
-        );
-      }
-      
-      if (max_price) {
-        const maxPriceNum = parseFloat(max_price);
-        filteredHotels = filteredHotels.filter(hotel =>
-          hotel.min_price !== null && hotel.min_price <= maxPriceNum
-        );
+      // ========== 价格筛选（内存层） ==========
+      if (min_price || max_price) {
+        const minPriceNum = min_price ? parseFloat(min_price) : 0;
+        const maxPriceNum = max_price ? parseFloat(max_price) : Infinity;
+        
+        processedHotels = processedHotels.filter(hotel => {
+          if (hotel.min_price === null || hotel.min_price === undefined) return false;
+          
+          const price = hotel.min_price;
+          return price >= minPriceNum && price <= maxPriceNum;
+        });
       }
 
-      const filteredCount = filteredHotels.length;
-      const totalPages = Math.ceil(filteredCount / limit);
-      
-      // 应用分页
-      const startIndex = offset;
-      const endIndex = Math.min(startIndex + parseInt(limit), filteredCount);
-      const paginatedHotels = filteredHotels.slice(startIndex, endIndex);
-
+      const totalPages = Math.ceil(count / limit);
       res.json({
         success: true,
         data: {
-          hotels: paginatedHotels,
+          hotels: processedHotels,
           pagination: {
-            total: filteredCount,
+            total: count,
             page: parseInt(page),
             limit: parseInt(limit),
             total_pages: totalPages,
@@ -543,8 +529,7 @@ class HotelController {
           },
           search_info: {
             keyword,
-            total_matches: count,
-            filtered_matches: filteredCount
+            total_matches: count
           }
         }
       });
@@ -609,7 +594,7 @@ class HotelController {
 
       // 处理酒店数据
       const processedHotels = hotels.map(hotel => {
-        const hotelData = this.processHotelData(hotel);
+        const hotelData = HotelController.processHotelData(hotel);
         return {
           id: hotelData.id,
           name_zh: hotelData.name_zh,
@@ -765,6 +750,9 @@ class HotelController {
     const date = new Date(dateStr);
     return date instanceof Date && !isNaN(date);
   }
+  
+  // ==================== 商户接口（需认证） ====================
+  
   // 获取当前用户的酒店列表
   static async getMyHotels(req, res) {
     try {
@@ -1008,203 +996,207 @@ class HotelController {
       });
     }
   }
-// ==================== 管理员相关方法 ====================
+  
+  // ==================== 管理员接口（需管理员权限） ====================
 
-// 获取所有酒店（管理员）
-static async getAllHotels(req, res) {
-  try {
-    const { 
-      status, 
-      page = 1, 
-      limit = 20,
-      sort_by = 'created_at',
-      order = 'desc'
-    } = req.query;
-    
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    
-    // 构建查询条件
-    const where = {};
-    if (status) {
-      where.status = status;
-    }
-    
-    const { count, rows: hotels } = await Hotel.findAndCountAll({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'merchant',
-          attributes: ['id', 'username', 'full_name', 'email']
-        },
-        {
-          model: HotelImage,
-          as: 'images',
-          where: { is_main: true },
-          required: false,
-          limit: 1
-        }
-      ],
-      order: [[sort_by, order]],
-      offset,
-      limit: parseInt(limit),
-      distinct: true
-    });
-    
-    res.json({
-      success: true,
-      data: {
-        hotels,
-        pagination: {
-          total: count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total_pages: Math.ceil(count / limit),
-          has_more: parseInt(page) < Math.ceil(count / limit)
-        }
+  // 获取所有酒店（管理员）
+  static async getAllHotels(req, res) {
+    try {
+      const { 
+        status, 
+        page = 1, 
+        limit = 20,
+        sort_by = 'created_at',
+        order = 'desc'
+      } = req.query;
+      
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      
+      // 构建查询条件
+      const where = {};
+      if (status) {
+        where.status = status;
       }
-    });
-  } catch (error) {
-    console.error('获取所有酒店错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取酒店列表失败',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-}
-
-// 更新酒店状态（管理员审核）
-static async updateHotelStatus(req, res) {
-  try {
-    const { id } = req.params;
-    const { status, review_notes } = req.body;
-    
-    if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
-      return res.status(400).json({
+      
+      const { count, rows: hotels } = await Hotel.findAndCountAll({
+        where,
+        include: [
+          {
+            model: User,
+            as: 'merchant',
+            attributes: ['id', 'username', 'full_name', 'email']
+          },
+          {
+            model: HotelImage,
+            as: 'images',
+            where: { is_main: true },
+            required: false,
+            limit: 1
+          }
+        ],
+        order: [[sort_by, order]],
+        offset,
+        limit: parseInt(limit),
+        distinct: true
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          hotels,
+          pagination: {
+            total: count,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total_pages: Math.ceil(count / limit),
+            has_more: parseInt(page) < Math.ceil(count / limit)
+          }
+        }
+      });
+    } catch (error) {
+      console.error('获取所有酒店错误:', error);
+      res.status(500).json({
         success: false,
-        message: '无效的状态值'
+        message: '获取酒店列表失败',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-    
-    // 查找酒店
-    const hotel = await Hotel.findByPk(id, {
-      include: [
-        {
-          model: User,
-          as: 'merchant',
-          attributes: ['id', 'username', 'full_name', 'email']
-        }
-      ]
-    });
-    
-    if (!hotel) {
-      return res.status(404).json({
+  }
+
+  // 更新酒店状态（管理员审核）
+  static async updateHotelStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { status, review_notes } = req.body;
+      
+      if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: '无效的状态值'
+        });
+      }
+      
+      // 查找酒店
+      const hotel = await Hotel.findByPk(id, {
+        include: [
+          {
+            model: User,
+            as: 'merchant',
+            attributes: ['id', 'username', 'full_name', 'email']
+          }
+        ]
+      });
+      
+      if (!hotel) {
+        return res.status(404).json({
+          success: false,
+          message: '酒店不存在'
+        });
+      }
+      
+      // 更新状态
+      const updateData = { status };
+      if (review_notes) {
+        updateData.review_notes = review_notes;
+      }
+      updateData.reviewed_at = new Date();
+      
+      await hotel.update(updateData);
+      
+      res.json({
+        success: true,
+        message: `酒店已${status === 'approved' ? '审核通过' : status === 'rejected' ? '审核拒绝' : '重置为待审核'}`,
+        data: hotel
+      });
+    } catch (error) {
+      console.error('更新酒店状态错误:', error);
+      res.status(500).json({
         success: false,
-        message: '酒店不存在'
+        message: '更新状态失败',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-    
-    // 更新状态
-    const updateData = { status };
-    if (review_notes) {
-      updateData.review_notes = review_notes;
-    }
-    updateData.reviewed_at = new Date();
-    
-    await hotel.update(updateData);
-    
-    res.json({
-      success: true,
-      message: `酒店已${status === 'approved' ? '审核通过' : status === 'rejected' ? '审核拒绝' : '重置为待审核'}`,
-      data: hotel
-    });
-  } catch (error) {
-    console.error('更新酒店状态错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '更新状态失败',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
   }
-}
 
-// 获取管理员统计
-static async getAdminStats(req, res) {
-  try {
-    // 酒店状态统计
-    const statusStats = await Hotel.findAll({
-      attributes: [
-        'status',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-      ],
-      group: ['status']
-    });
-    
-    // 格式化统计结果
-    const byStatus = {};
-    let total = 0;
-    
-    statusStats.forEach(stat => {
-      const status = stat.get('status');
-      const count = parseInt(stat.get('count'));
-      byStatus[status] = count;
-      total += count;
-    });
-    
-    // 星级统计
-    const starStats = await Hotel.findAll({
-      where: { status: 'approved' },
-      attributes: [
-        'star_rating',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-      ],
-      group: ['star_rating'],
-      order: [['star_rating', 'ASC']]
-    });
-    
-    const byStarRating = starStats.map(stat => ({
-      star_rating: stat.get('star_rating'),
-      count: parseInt(stat.get('count'))
-    }));
-    
-    // 城市统计
-    const cityStats = await Hotel.findAll({
-      where: { status: 'approved' },
-      attributes: [
-        'city',
-        'province',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-      ],
-      group: ['city', 'province'],
-      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
-      limit: 10
-    });
-    
-    const byCity = cityStats.map(stat => ({
-      city: stat.get('city'),
-      province: stat.get('province'),
-      count: parseInt(stat.get('count'))
-    }));
-    
-    res.json({
-      success: true,
-      data: {
-        total_hotels: total,
-        by_status: byStatus,
-        by_star_rating: byStarRating,
-        by_city: byCity
-      }
-    });
-  } catch (error) {
-    console.error('获取管理员统计错误:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取统计信息失败',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+  // 获取管理员统计
+  static async getAdminStats(req, res) {
+    try {
+      // 酒店状态统计
+      const statusStats = await Hotel.findAll({
+        attributes: [
+          'status',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+        group: ['status']
+      });
+      
+      // 格式化统计结果
+      const byStatus = {};
+      let total = 0;
+      
+      statusStats.forEach(stat => {
+        const status = stat.get('status');
+        const count = parseInt(stat.get('count'));
+        byStatus[status] = count;
+        total += count;
+      });
+      
+      // 星级统计
+      const starStats = await Hotel.findAll({
+        where: { status: 'approved' },
+        attributes: [
+          'star_rating',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+        group: ['star_rating'],
+        order: [['star_rating', 'ASC']]
+      });
+      
+      const byStarRating = starStats.map(stat => ({
+        star_rating: stat.get('star_rating'),
+        count: parseInt(stat.get('count'))
+      }));
+      
+      // 城市统计
+      const cityStats = await Hotel.findAll({
+        where: { status: 'approved' },
+        attributes: [
+          'city',
+          'province',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+        group: ['city', 'province'],
+        order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
+        limit: 10
+      });
+      
+      const byCity = cityStats.map(stat => ({
+        city: stat.get('city'),
+        province: stat.get('province'),
+        count: parseInt(stat.get('count'))
+      }));
+      
+      res.json({
+        success: true,
+        data: {
+          total_hotels: total,
+          by_status: byStatus,
+          by_star_rating: byStarRating,
+          by_city: byCity
+        }
+      });
+    } catch (error) {
+      console.error('获取管理员统计错误:', error);
+      res.status(500).json({
+        success: false,
+        message: '获取统计信息失败',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   }
-}
+  
+  // ==================== 辅助方法 ====================
+  
   // 获取推荐酒店
   static async getRecommendedHotels(req, res) {
     try {
@@ -1244,7 +1236,7 @@ static async getAdminStats(req, res) {
       });
 
       const processedHotels = hotels.map(hotel => {
-        const hotelData = this.processHotelData(hotel);
+        const hotelData = HotelController.processHotelData(hotel);
         
         // 添加推荐理由
         hotelData.recommendation_reason = '高分好评酒店';

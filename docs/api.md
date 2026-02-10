@@ -202,6 +202,35 @@ limit: 每页数量（默认10）
   }
 }
 ```
+#### 搜索酒店
+-**URL**: /api/hotels/search
+-**方法**: GET
+-**路径参数**:
+参数名	    类型	必填	说明
+keyword	  string	否	关键词搜索（酒店名、地址、描述）
+city	    string	否	按城市搜索
+min_price	number	否	最低价格（需要和max_price同时使用）
+max_price	number	否	最高价格（需要和min_price同时使用）
+响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "hotels": [
+      {
+        "id": 2,
+        "name_zh": "北京国际饭店",
+        "name_en": "Beijing International Hotel",
+        "city": "北京",
+        "star_rating": 4,
+        "final_price": 450,
+        "image": "/images/hotel2.jpg"
+      }
+    ],
+    "count": 1
+  }
+}
+```
 #### 获取酒店详情
 -**URL**: /api/hotels/public/:id
 -**方法**: GET
@@ -242,6 +271,125 @@ guests: 客人数量（默认2人）
     "min_price": "float",
     "max_price": "float",
     "estimated_total": "float"
+  }
+}
+```
+#### 获取价格区间
+-**URL**:/api/hotels/prices/ranges
+-**方法**: GET
+-**响应示例**
+```json
+{
+  "success": true,
+  "data": {
+    "min_price": 180,
+    "max_price": 1500,
+    "average_price": 450,
+    "price_ranges": [
+      {
+        "range": "0-300",
+        "count": 5
+      },
+      {
+        "range": "301-600",
+        "count": 8
+      },
+      {
+        "range": "601-900",
+        "count": 4
+      },
+      {
+        "range": "901+",
+        "count": 3
+      }
+    ]
+  }
+}
+```
+#### 快速搜索
+-**URL**- :/api/hotels/search/quick
+-**方法**: GET
+-**查询参数**-
+参数名	类型	必填	说明
+q	    string	是	搜索关键词
+-**响应示例**
+```json
+{
+  "success": true,
+  "data": {
+    "hotels": [
+      {
+        "id": 1,
+        "name_zh": "北京大酒店",
+        "name_en": "Beijing Grand Hotel",
+        "city": "北京",
+        "star_rating": 5,
+        "image": "/images/hotel1.jpg"
+      }
+    ],
+    "cities": [
+      {
+        "city": "北京",
+        "province": "北京",
+        "hotel_count": 8
+      }
+    ]
+  }
+}
+```
+#### 获取设施选项
+-**URL**-: /api/hotels/facilities/options
+-**方法**: GET
+-**响应示例**-
+```json
+{
+  "success": true,
+  "data": [
+    "免费WiFi",
+    "停车场",
+    "游泳池",
+    "健身房",
+    "餐厅",
+    "会议室",
+    "商务中心",
+    "机场接送",
+    "洗衣服务",
+    "叫车服务",
+    "无障碍设施",
+    "24小时前台",
+    "行李寄存",
+    "外币兑换",
+    "旅游票务"
+  ]
+}
+```
+#### 获取推荐酒店
+-**URL**-:/api/hotels/recommended
+-**方法**: GET
+-**响应示例**-
+```json
+{
+  "success": true,
+  "data": {
+    "hotels": [
+      {
+        "id": 1,
+        "name_zh": "北京大酒店",
+        "name_en": "Beijing Grand Hotel",
+        "city": "北京",
+        "star_rating": 5,
+        "description": "五星级豪华酒店",
+        "final_price": 720,
+        "image": "/images/hotel1.jpg",
+        "room_types": [
+          {
+            "id": 101,
+            "name": "豪华双人间",
+            "final_price": 720
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -330,7 +478,9 @@ guests: 客人数量（默认2人）
 -**URL**: /api/hotels/:id/submit
 -**方法**: POST
 -**权限**: merchant 或 admin 权限
-
+-**路径参数**-
+参数名	类型	必填	说明
+id 	  integer	是	酒店ID
 -**响应**:
 
 ```json
@@ -440,4 +590,84 @@ limit: 每页数量（默认20）
     ]
   }
 }
+```
+### 数据库表结构参考
+#### 用户表 (users)
+```sql
+CREATE TABLE users (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  role ENUM('admin', 'merchant', 'user') DEFAULT 'user',
+  full_name VARCHAR(100),
+  phone VARCHAR(20),
+  avatar VARCHAR(255),
+  is_active BOOLEAN DEFAULT true,
+  last_login TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+#### 酒店表 (hotels)
+```sql
+CREATE TABLE hotels (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name_zh VARCHAR(100) NOT NULL,
+  name_en VARCHAR(100),
+  description TEXT,
+  address VARCHAR(255),
+  city VARCHAR(50),
+  province VARCHAR(50),
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  star_rating INT CHECK (star_rating BETWEEN 1 AND 5),
+  opening_year INT,
+  facilities TEXT,  -- JSON格式存储
+  status ENUM('draft', 'pending', 'approved', 'rejected') DEFAULT 'draft',
+  rejection_reason TEXT,
+  contact_phone VARCHAR(20),
+  contact_email VARCHAR(100),
+  check_in_time VARCHAR(5),
+  check_out_time VARCHAR(5),
+  policy TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  merchant_id INT,
+  FOREIGN KEY (merchant_id) REFERENCES users(id)
+);
+```
+#### 房型表 (room_types)
+```sql
+CREATE TABLE room_types (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  hotel_id INT NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  area INT,
+  max_guests INT DEFAULT 2,
+  bed_type VARCHAR(50),
+  facilities TEXT,  -- JSON格式存储
+  base_price DECIMAL(10, 2) NOT NULL,
+  discount_rate DECIMAL(3, 2) DEFAULT 1.00,
+  available_count INT DEFAULT 0,
+  is_available BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (hotel_id) REFERENCES hotels(id)
+);
+```
+#### 酒店图片表 (hotel_images)
+```sql
+CREATE TABLE hotel_images (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  hotel_id INT NOT NULL,
+  url VARCHAR(255) NOT NULL,
+  alt_text VARCHAR(255),
+  is_main BOOLEAN DEFAULT false,
+  `order` INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (hotel_id) REFERENCES hotels(id)
+);
 ```

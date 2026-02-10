@@ -2,7 +2,7 @@
 require('dotenv').config();
 
 module.exports = {
-  development: {
+  development: {  //开发环境
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -18,7 +18,7 @@ module.exports = {
     },
     timezone: '+08:00', // 东八区(北京时间)
   },
-  test: {
+  test: {  //测试环境
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME + '_test',
@@ -27,7 +27,7 @@ module.exports = {
     dialect: 'mysql',
     logging: false,
   },
-  production: {
+  production: {  //生产环境
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME + '_prod',
@@ -35,6 +35,7 @@ module.exports = {
     port: process.env.DB_PORT,
     dialect: 'mysql',
     logging: false,
+    //连接池配置
     pool: {
       max: 20,
       min: 5,
