@@ -3,151 +3,164 @@ const { Op } = require('sequelize');
 
 class HotelController {
   // 获取酒店列表（公开接口） - 已实现完整筛选功能
-  static async getHotels(req, res) {
-    try {
-      const {
-        city,
-        check_in,        // 入住日期 YYYY-MM-DD
-        check_out,       // 离店日期 YYYY-MM-DD
-        guests = 2,
-        min_price,
-        max_price,
-        star_rating,
-        facilities,      // 设施筛选，逗号分隔，如 "免费WiFi,停车场"
-        page = 1,
-        limit = 10,
-        sort_by = 'created_at',
-        order = 'desc'
-      } = req.query;
+  // 获取酒店列表（公开接口）- 已实现完整筛选功能 + keyword 模糊搜索
+static async getHotels(req, res) {
+  try {
+    const {
+      city,
+      keyword,        // 🆕 新增：关键词搜索（酒店名/地址/描述）
+      check_in,       // 入住日期 YYYY-MM-DD
+      check_out,      // 离店日期 YYYY-MM-DD
+      guests = 2,
+      min_price,
+      max_price,
+      star_rating,
+      facilities,     // 设施筛选，逗号分隔，如 "免费WiFi,停车场"
+      page = 1,
+      limit = 10,
+      sort_by = 'created_at',
+      order = 'desc'
+    } = req.query;
 
-      // 分页参数
-      const offset = (parseInt(page) - 1) * parseInt(limit);
+    // 分页参数
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
-      // 基础筛选条件 - 只获取已审核通过的酒店
-      const where = { status: 'approved' };
+    // 基础筛选条件 - 只获取已审核通过的酒店
+    const where = { status: 'approved' };
 
-      // 城市筛选
-      if (city) {
-        where.city = { [Op.like]: `%${city}%` };
-      }
+    // 城市筛选
+    if (city) {
+      where.city = { [Op.like]: `%${city}%` };
+    }
 
-      // 星级筛选
-      if (star_rating) {
-        where.star_rating = parseInt(star_rating);
-      }
-
-      // 设施筛选 - 兼容 MySQL 的方式
-      if (facilities) {
-        const facilityList = facilities.split(',').map(f => f.trim());
-        
-        // 为每个设施添加 JSON_CONTAINS 条件
-        const facilityConditions = facilityList.map(facility => {
-          return sequelize.where(
-            sequelize.fn('JSON_CONTAINS', sequelize.col('facilities'), JSON.stringify(facility)),
-            1
-          );
-        });
-        
-        // 如果有多个设施条件，使用 Op.and
-        if (facilityConditions.length > 0) {
-          where[Op.and] = where[Op.and] || [];
-          where[Op.and].push(...facilityConditions);
-        }
-      }
-
-      // ========== 简化：价格筛选（内存层） ==========
-      // 先查询所有符合条件的酒店
-      const includeConditions = [
-        {
-          model: HotelImage,
-          as: 'images',
-          where: { is_main: true },
-          required: false,
-          limit: 1
-        },
-        {
-          model: RoomType,
-          as: 'room_types',
-          where: {
-            is_available: true,
-            max_guests: { [Op.gte]: parseInt(guests) } // 满足入住要求
-          },
-          required: false
-        }
+    // 🆕 关键词模糊搜索（酒店名称、地址、描述）
+    if (keyword && keyword.trim()) {
+      where[Op.or] = [
+        { name_zh: { [Op.like]: `%${keyword.trim()}%` } },
+        { name_en: { [Op.like]: `%${keyword.trim()}%` } },
+        { address: { [Op.like]: `%${keyword.trim()}%` } },
+        { description: { [Op.like]: `%${keyword.trim()}%` } }
       ];
+    }
 
-      // 性能优化：使用子查询避免内存分页问题
-      let queryOptions = {
-        where,
-        include: includeConditions,
-        order: [[sort_by, order]],
-        offset,
-        limit: parseInt(limit),
-        distinct: true,
-        subQuery: false // 避免子查询，提高性能
-      };
+    // 星级筛选
+    if (star_rating) {
+      where.star_rating = parseInt(star_rating);
+    }
 
-      // 查询酒店
-      const { count: totalCount, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
-
-      // 处理返回数据，计算最低价格和折扣信息
-      let processedHotels = hotels.map(hotel => {
-        return HotelController.processHotelData(hotel);
-      });
-
-      // ========== 价格筛选（内存层） ==========
-      if (min_price || max_price) {
-        const minPriceNum = min_price ? parseFloat(min_price) : 0;
-        const maxPriceNum = max_price ? parseFloat(max_price) : Infinity;
-        
-        processedHotels = processedHotels.filter(hotel => {
-          if (hotel.min_price === null || hotel.min_price === undefined) return false;
-          
-          const price = hotel.min_price;
-          return price >= minPriceNum && price <= maxPriceNum;
-        });
-      }
-
-      // 直接使用数据库查询结果计算分页
-      const totalPages = Math.ceil(totalCount / limit);
+    // 设施筛选 - 兼容 MySQL 的方式
+    if (facilities) {
+      const facilityList = facilities.split(',').map(f => f.trim());
       
-      // 构建响应
-      const response = {
-        success: true,
-        data: {
-          hotels: processedHotels,
-          pagination: {
-            total: totalCount,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total_pages: totalPages,
-            has_more: parseInt(page) < totalPages
-          },
-          filters: {
-            applied: {
-              city: city || null,
-              check_in: check_in || null,
-              check_out: check_out || null,
-              guests: parseInt(guests),
-              min_price: min_price ? parseFloat(min_price) : null,
-              max_price: max_price ? parseFloat(max_price) : null,
-              star_rating: star_rating ? parseInt(star_rating) : null,
-              facilities: facilities || null
-            }
-          }
-        }
-      };
+      // 为每个设施添加 JSON_CONTAINS 条件
+      const facilityConditions = facilityList.map(facility => {
+        return sequelize.where(
+          sequelize.fn('JSON_CONTAINS', sequelize.col('facilities'), JSON.stringify(facility)),
+          1
+        );
+      });
+      
+      // 如果有多个设施条件，使用 Op.and
+      if (facilityConditions.length > 0) {
+        where[Op.and] = where[Op.and] || [];
+        where[Op.and].push(...facilityConditions);
+      }
+    }
 
-      res.json(response);
-    } catch (error) {
-      console.error('获取酒店列表错误:', error);
-      res.status(500).json({
-        success: false,
-        message: '获取酒店列表失败',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    // ========== 简化：价格筛选（内存层） ==========
+    // 先查询所有符合条件的酒店
+    const includeConditions = [
+      {
+        model: HotelImage,
+        as: 'images',
+        where: { is_main: true },
+        required: false,
+        limit: 1
+      },
+      {
+        model: RoomType,
+        as: 'room_types',
+        where: {
+          is_available: true,
+          max_guests: { [Op.gte]: parseInt(guests) } // 满足入住要求
+        },
+        required: false
+      }
+    ];
+
+    // 性能优化：使用子查询避免内存分页问题
+    let queryOptions = {
+      where,
+      include: includeConditions,
+      order: [[sort_by, order]],
+      offset,
+      limit: parseInt(limit),
+      distinct: true,
+      subQuery: false // 避免子查询，提高性能
+    };
+
+    // 查询酒店
+    const { count: totalCount, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
+
+    // 处理返回数据，计算最低价格和折扣信息
+    let processedHotels = hotels.map(hotel => {
+      return HotelController.processHotelData(hotel);
+    });
+
+    // ========== 价格筛选（内存层） ==========
+    if (min_price || max_price) {
+      const minPriceNum = min_price ? parseFloat(min_price) : 0;
+      const maxPriceNum = max_price ? parseFloat(max_price) : Infinity;
+      
+      processedHotels = processedHotels.filter(hotel => {
+        if (hotel.min_price === null || hotel.min_price === undefined) return false;
+        
+        const price = hotel.min_price;
+        return price >= minPriceNum && price <= maxPriceNum;
       });
     }
+
+    // 直接使用数据库查询结果计算分页
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    // 构建响应
+    const response = {
+      success: true,
+      data: {
+        hotels: processedHotels,
+        pagination: {
+          total: totalCount,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total_pages: totalPages,
+          has_more: parseInt(page) < totalPages
+        },
+        filters: {
+          applied: {
+            city: city || null,
+            keyword: keyword || null,      // 🆕 返回使用的关键词
+            check_in: check_in || null,
+            check_out: check_out || null,
+            guests: parseInt(guests),
+            min_price: min_price ? parseFloat(min_price) : null,
+            max_price: max_price ? parseFloat(max_price) : null,
+            star_rating: star_rating ? parseInt(star_rating) : null,
+            facilities: facilities || null
+          }
+        }
+      }
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('获取酒店列表错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取酒店列表失败',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
+}
 
   // 获取酒店详情（已实现日期和价格计算）
   static async getHotelById(req, res) {
@@ -421,127 +434,126 @@ class HotelController {
   }
 
   // 搜索酒店（增强版）
-  static async searchHotels(req, res) {
-    try {
-      const { 
-        keyword, 
-        page = 1, 
-        limit = 10,
-        min_price,
-        max_price,
-        star_rating,
-        city,
-        guests = 2
-      } = req.query;
-      
-      // 修改验证逻辑：允许只搜索城市
-      if (!keyword && !city) {
-        return res.status(400).json({
-          success: false,
-          message: '请输入搜索关键词或城市'
-        });
-      }
-      
-      const offset = (parseInt(page) - 1) * parseInt(limit);
-      
-      // 修改搜索条件构建
-      const where = {
-        status: 'approved'
-      };
-      
-      // 如果有关键词，使用多字段搜索
-      if (keyword) {
-        where[Op.or] = [
-          { name_zh: { [Op.like]: `%${keyword}%` } },
-          { name_en: { [Op.like]: `%${keyword}%` } },
-          { city: { [Op.like]: `%${keyword}%` } },
-          { address: { [Op.like]: `%${keyword}%` } },
-          { description: { [Op.like]: `%${keyword}%` } }
-        ];
-      }
-      
-      // 如果指定了城市，精确搜索城市
-      if (city && !keyword) {
-        where.city = { [Op.like]: `%${city}%` };
-      }
-       
-      // 添加星级筛选
-      if (star_rating) {
-        where.star_rating = parseInt(star_rating);
-      }
-      
-      // 构建查询选项
-      const queryOptions = {
-        where,
-        include: [
-          {
-            model: HotelImage,
-            as: 'images',
-            where: { is_main: true },
-            required: false,
-            limit: 1
-          },
-          {
-            model: RoomType,
-            as: 'room_types',
-            where: { is_available: true },
-            required: false
-          }
-        ],
-        order: [['created_at', 'DESC']],
-        offset,
-        limit: parseInt(limit),
-        subQuery: false
-      };
-      
-      // 查询数据
-      const { count, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
-
-      // 处理酒店数据
-      let processedHotels = hotels.map(hotel => {
-        return HotelController.processHotelData(hotel);
-      });
-
-      // ========== 价格筛选（内存层） ==========
-      if (min_price || max_price) {
-        const minPriceNum = min_price ? parseFloat(min_price) : 0;
-        const maxPriceNum = max_price ? parseFloat(max_price) : Infinity;
-        
-        processedHotels = processedHotels.filter(hotel => {
-          if (hotel.min_price === null || hotel.min_price === undefined) return false;
-          
-          const price = hotel.min_price;
-          return price >= minPriceNum && price <= maxPriceNum;
-        });
-      }
-
-      const totalPages = Math.ceil(count / limit);
-      res.json({
-        success: true,
-        data: {
-          hotels: processedHotels,
-          pagination: {
-            total: count,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total_pages: totalPages,
-            has_more: parseInt(page) < totalPages
-          },
-          search_info: {
-            keyword,
-            total_matches: count
-          }
-        }
-      });
-    } catch (error) {
-      console.error('搜索酒店错误:', error);
-      res.status(500).json({
+static async searchHotels(req, res) {
+  try {
+    const { 
+      keyword, 
+      page = 1, 
+      limit = 10,
+      min_price,
+      max_price,
+      star_rating,
+      city,
+      guests = 2
+    } = req.query;
+    
+    // 🔥 修复：允许只有价格/星级筛选，无需关键词或城市
+    if (!keyword && !city && !min_price && !max_price && !star_rating) {
+      return res.status(400).json({
         success: false,
-        message: '搜索失败',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: '请输入搜索关键词、城市或至少一个筛选条件'
       });
     }
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // 构建搜索条件
+    const where = {
+      status: 'approved'
+    };
+    
+    // 如果有关键词，使用多字段搜索
+    if (keyword) {
+      where[Op.or] = [
+        { name_zh: { [Op.like]: `%${keyword}%` } },
+        { name_en: { [Op.like]: `%${keyword}%` } },
+        { city: { [Op.like]: `%${keyword}%` } },
+        { address: { [Op.like]: `%${keyword}%` } },
+        { description: { [Op.like]: `%${keyword}%` } }
+      ];
+    }
+    
+    // 如果指定了城市，精确搜索城市（当没有关键词时单独使用）
+    if (city && !keyword) {
+      where.city = { [Op.like]: `%${city}%` };
+    }
+     
+    // 添加星级筛选
+    if (star_rating) {
+      where.star_rating = parseInt(star_rating);
+    }
+    
+    // 构建查询选项
+    const queryOptions = {
+      where,
+      include: [
+        {
+          model: HotelImage,
+          as: 'images',
+          where: { is_main: true },
+          required: false,
+          limit: 1
+        },
+        {
+          model: RoomType,
+          as: 'room_types',
+          where: { is_available: true },
+          required: false
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      offset,
+      limit: parseInt(limit),
+      subQuery: false
+    };
+    
+    // 查询数据
+    const { count, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
+
+    // 处理酒店数据
+    let processedHotels = hotels.map(hotel => {
+      return HotelController.processHotelData(hotel);
+    });
+
+    // ========== 价格筛选（内存层） ==========
+    if (min_price || max_price) {
+      const minPriceNum = min_price ? parseFloat(min_price) : 0;
+      const maxPriceNum = max_price ? parseFloat(max_price) : Infinity;
+      
+      processedHotels = processedHotels.filter(hotel => {
+        if (hotel.min_price === null || hotel.min_price === undefined) return false;
+        const price = hotel.min_price;
+        return price >= minPriceNum && price <= maxPriceNum;
+      });
+    }
+
+    const totalPages = Math.ceil(count / limit);
+    res.json({
+      success: true,
+      data: {
+        hotels: processedHotels,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total_pages: totalPages,
+          has_more: parseInt(page) < totalPages
+        },
+        search_info: {
+          keyword,
+          total_matches: count
+        }
+      }
+    });
+  } catch (error) {
+    console.error('搜索酒店错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '搜索失败',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
+}
 
   // 快速搜索（用于搜索框自动补全）
   static async quickSearch(req, res) {

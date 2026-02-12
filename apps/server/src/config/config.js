@@ -1,46 +1,65 @@
-// src/config/config.js - 数据库配置文件
+// src/config/config.js - 数据库配置文件（增强版）
 require('dotenv').config();
 
+// 提取环境变量并提供默认值
+const {
+  DB_USER = 'root',
+  DB_PASSWORD = '12345',
+  DB_NAME = 'hotel_booking',
+  DB_HOST = 'localhost',
+  DB_PORT = 3306
+} = process.env;
+
+// 将端口转换为整数
+const PORT = parseInt(DB_PORT, 10);
+
 module.exports = {
-  development: {  //开发环境
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+  development: {
+    username: DB_USER,
+    password: DB_PASSWORD,
+    database: DB_NAME,
+    host: DB_HOST,
+    port: PORT,
     dialect: 'mysql',
-    logging: console.log,  // 开发时显示SQL语句
+    logging: console.log,
     pool: {
-      max: 10,        // 最大连接数
-      min: 0,         // 最小连接数
-      acquire: 30000, // 获取连接超时时间(毫秒)
-      idle: 10000     // 连接空闲时间(毫秒)
+      max: 10,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
     },
-    timezone: '+08:00', // 东八区(北京时间)
+    timezone: '+08:00'
   },
-  test: {  //测试环境
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME + '_test',
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+
+  test: {
+    username: DB_USER,
+    password: DB_PASSWORD,
+    database: `${DB_NAME}_test`,
+    host: DB_HOST,
+    port: PORT,
     dialect: 'mysql',
     logging: false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
   },
-  production: {  //生产环境
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME + '_prod',
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+
+  production: {
+    username: DB_USER,
+    password: DB_PASSWORD,
+    database: `${DB_NAME}_prod`,
+    host: DB_HOST,
+    port: PORT,
     dialect: 'mysql',
     logging: false,
-    //连接池配置
     pool: {
       max: 20,
       min: 5,
       acquire: 60000,
       idle: 20000
-    },
+    }
   }
 };
