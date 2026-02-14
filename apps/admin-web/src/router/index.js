@@ -1,15 +1,17 @@
 import React from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router-dom';
+import RootLayout from '../components/RootLayout';
+import ErrorFallback from '../components/ErrorFallback';
 // 引入页面组件
 import Login from '../views/login/Login'; 
 import Register from '../views/register/Register'; 
 import ManagerHome from '../views/manager/ManagerHome'; 
 import HotelAuditList from '../views/manager/HotelAuditList'; 
-import HotelAuditDetail from '../views/manager/HotelAuditDetail'; // 已引入
-import ServerHome from '../views/server/ServerHome'; 
-import HotelList from '../views/server/HotelList'; 
-import HotelAdd from '../views/server/HotelAdd'; 
-import HotelEdit from '../views/server/HotelEdit'; 
+import HotelAuditDetail from '../views/manager/HotelAuditDetail';
+import MerchantHome from '../views/merchant/MerchantHome'; 
+import HotelList from '../views/merchant/HotelList'; 
+import HotelAdd from '../views/merchant/HotelAdd'; 
+import HotelEdit from '../views/merchant/HotelEdit'; 
 import UserHome from '../views/user/UserHome'; 
 
 // 🔴 路由守卫：精简逻辑，保留核心功能
@@ -35,7 +37,7 @@ const PrivateRoute = ({ children, requiredRole }) => {
 
   // 角色不匹配 → 跳对应首页
   if (currentRole !== requiredRole) {
-    const redirectPath = currentRole === 'admin' ? '/manager/home' : '/server/home';
+    const redirectPath = currentRole === 'admin' ? '/manager/home' : '/merchant/home';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -48,7 +50,7 @@ const HotelAuditWrapper = () => <PrivateRoute requiredRole="admin"><HotelAuditLi
 // 🔥 新增：审核详情页的路由守卫封装
 const HotelAuditDetailWrapper = () => <PrivateRoute requiredRole="admin"><HotelAuditDetail /></PrivateRoute>;
 
-const ServerHomeWrapper = () => <PrivateRoute requiredRole="merchant"><ServerHome /></PrivateRoute>;
+const MerchantHomeWrapper = () => <PrivateRoute requiredRole="merchant"><MerchantHome /></PrivateRoute>;
 const HotelListWrapper = () => <PrivateRoute requiredRole="merchant"><HotelList /></PrivateRoute>;
 const HotelAddWrapper = () => <PrivateRoute requiredRole="merchant"><HotelAdd /></PrivateRoute>;
 const HotelEditWrapper = () => <PrivateRoute requiredRole="merchant"><HotelEdit /></PrivateRoute>;
@@ -77,28 +79,31 @@ const ErrorPage = () => {
   );
 };
 
-// 路由配置（🔥 核心修改：添加审核详情页路由）
+// 路由配置：使用根布局包裹，确保 Ant Design 和布局正确渲染
 const routesConfig = [
-  { path: '/', element: <Login /> },
-  { path: '/login', element: <Login /> },
-  { path: '/register', element: <Register /> },
-  
-  // 管理员路由（重点：添加审核详情页路由）
-  { path: '/manager/home', element: <AdminHomeWrapper /> },
-  { path: '/manager/hotel-audit', element: <HotelAuditWrapper /> },
-  { path: '/manager/hotel-audit/:id', element: <HotelAuditDetailWrapper /> }, // 🔥 新增：审核详情页路由
-  
-  // 商户路由
-  { path: '/server/home', element: <ServerHomeWrapper /> },
-  { path: '/server/hotel-list', element: <HotelListWrapper /> },
-  { path: '/server/hotel-add', element: <HotelAddWrapper /> },
-  { path: '/server/hotel-edit/:id', element: <HotelEditWrapper /> },
-  
-  // 备用路由
-  { path: '/user/home', element: <UserHome /> },
-  
-  // 404（必须最后）
-  { path: '*', element: <ErrorPage /> }
+  {
+    path: '/',
+    element: <RootLayout />,
+    errorElement: <ErrorFallback />,
+    children: [
+      { index: true, element: <Login /> },
+      { path: 'login', element: <Login /> },
+      { path: 'register', element: <Register /> },
+      // 管理员路由
+      { path: 'manager/home', element: <AdminHomeWrapper /> },
+      { path: 'manager/hotel-audit', element: <HotelAuditWrapper /> },
+      { path: 'manager/hotel-audit/:id', element: <HotelAuditDetailWrapper /> },
+      // 商户路由
+      { path: 'merchant/home', element: <MerchantHomeWrapper /> },
+      { path: 'merchant/hotel-list', element: <HotelListWrapper /> },
+      { path: 'merchant/hotel-add', element: <HotelAddWrapper /> },
+      { path: 'merchant/hotel-edit/:id', element: <HotelEditWrapper /> },
+      // 备用路由
+      { path: 'user/home', element: <UserHome /> },
+      // 404（必须最后）
+      { path: '*', element: <ErrorPage /> }
+    ]
+  }
 ];
 
 // 创建路由实例

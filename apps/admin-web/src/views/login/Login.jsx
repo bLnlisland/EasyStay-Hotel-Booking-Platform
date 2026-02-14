@@ -1,11 +1,10 @@
 import React from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 // 核心修复：使用React.memo包裹，避免重复渲染
 const Login = React.memo(() => {
-  const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/'; // 记录来源地址
 
@@ -46,9 +45,10 @@ const Login = React.memo(() => {
       setTimeout(() => {
         // 优先跳来源页，否则跳角色首页
         const targetPath = from === '/login' || from === '/' 
-          ? (userRole === 'admin' ? '/manager/home' : '/server/home') 
+          ? (userRole === 'admin' ? '/manager/home' : '/merchant/home') 
           : from;
-        navigate(targetPath, { replace: true });
+        // 使用 window.location 强制刷新，避免 createBrowserRouter 下 navigate 后页面不渲染的问题
+        window.location.replace(targetPath);
       }, 800);
     } catch (error) {
       message.error('登录失败，请稍后重试！');
