@@ -55,7 +55,7 @@ static async getHotels(req, res) {
       // 为每个设施添加 JSON_CONTAINS 条件
       const facilityConditions = facilityList.map(facility => {
         return sequelize.where(
-          sequelize.fn('JSON_CONTAINS', sequelize.col('facilities'), JSON.stringify(facility)),
+          sequelize.fn('JSON_CONTAINS', sequelize.col('Hotel.facilities'), JSON.stringify(facility)),
           1
         );
       });

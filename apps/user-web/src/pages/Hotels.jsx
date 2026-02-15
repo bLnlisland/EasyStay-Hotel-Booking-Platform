@@ -1,19 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { List, Card, Select, DatePicker, Button, InputNumber, Row, Col, Tag, Drawer, Input, Space } from "antd";
 import { mockHotels } from "../mock/hotels";
-// import { http } from "../api/http"; // 后端可用时再打开
+import { http } from "../api/http"; // 后端可用时再打开
 import { Link, useSearchParams } from "react-router-dom";
+import FacilitiesPicker from "../components/FacilitiesPicker";
+import { fetchFacilityOptions } from "../api/facilities";
+import { parseFacilities, stringifyFacilities } from "../utils/facilities";
 
 const { RangePicker } = DatePicker;
-const USE_MOCK = true; // ✅ 现在用 mock；后端通了改 false
+const USE_MOCK = false; // 本地测试用 mock；后端通了改 false
 
-const FACILITY_TAGS = [
-  { label: "亲子", code: "family" },
-  { label: "豪华", code: "luxury" },
-  { label: "免费停车场", code: "parking" },
-  { label: "WiFi", code: "wifi" },
-  { label: "含早餐", code: "breakfast" },
-];
+
 
 function normalizeCity(input) {
   if (!input) return "";
@@ -45,6 +42,16 @@ export default function Hotels() {
 
     // ✅ 从 URL 读取查询条件（/list?city=...&check_in=...&check_out=...&guests=...）
   const [sp, setSp] = useSearchParams();
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const reqIdRef = useRef(0);
+  const [facilityOptions, setFacilityOptions] = useState([]);
+
+  useEffect(() => {
+    fetchFacilityOptions().then((opts = []) => setFacilityOptions(opts));
+  }, []);
+
 
 useEffect(() => {
   setQuery((q) => ({
@@ -59,9 +66,13 @@ useEffect(() => {
     min_price: sp.get("min_price") ? Number(sp.get("min_price")) : null,
     max_price: sp.get("max_price") ? Number(sp.get("max_price")) : null,
 
-    facilities: sp.get("facilities") ? sp.get("facilities").split(",") : [],
+    facilities: parseFacilities(sp.get("facilities")),
     sort: sp.get("sort") || "",
   }));
+  setPage(1);
+  setHotels([]);
+  setHasMore(true);
+
 }, [sp]);
 
 
@@ -70,16 +81,71 @@ useEffect(() => {
   const [hotels, setHotels] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // 拉数据（mock / 接口 二选一）
-  useEffect(() => {
-    if (USE_MOCK) {
-      setHotels(mockHotels);
-      return;
-    }
-    // http
-    //   .get("/api/hotels/public", { params: compactQuery(query) })
-    //   .then((res) => setHotels(res?.data?.hotels || []));
-  }, []);
+useEffect(() => {
+  if (USE_MOCK) {
+    setHotels(mockHotels);
+    setHasMore(false);
+    return;
+  }
+
+  const myReqId = ++reqIdRef.current;
+  let cancelled = false;
+
+  setLoading(true);
+
+  const params = {
+    page,
+    limit: 10,
+    city: normalizeCity(query.city) || undefined,
+    keyword: query.keyword?.trim() || undefined,
+    check_in: query.check_in || undefined,
+    check_out: query.check_out || undefined,
+    guests: query.guests || 2,
+    star_rating: query.star_rating ?? undefined,
+    min_price: query.min_price ?? undefined,
+    max_price: query.max_price ?? undefined,
+    facilities: query.facilities?.length ? query.facilities.join(",") : undefined,
+  };
+
+  console.log("REQ =>", params);
+
+  http
+    .get("/hotels/public", { params })
+    .then((res) => {
+      if (cancelled) return;
+      if (myReqId !== reqIdRef.current) return;
+
+      if (!res?.success) {
+        setHotels([]);
+        setHasMore(false);
+        return;
+      }
+
+      const data = res.data;
+      console.log("RES first city =>", data?.hotels?.[0]?.city);
+
+      setHotels((prev) => (page === 1 ? data.hotels : [...prev, ...data.hotels]));
+      setHasMore(!!data.pagination?.has_more);
+    })
+    .catch(() => {
+      if (cancelled) return;
+      if (myReqId !== reqIdRef.current) return;
+
+      setHotels([]);
+      setHasMore(false);
+    })
+    .finally(() => {
+      if (cancelled) return;
+      if (myReqId !== reqIdRef.current) return;
+      setLoading(false);
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [USE_MOCK, page, query.city, query.check_in, query.check_out, query.guests, query.star_rating, query.min_price, query.max_price, query.facilities]);
+
+
 
 const applyToUrl = (nextQuery) => {
   const p = new URLSearchParams();
@@ -348,29 +414,11 @@ const qs = useMemo(() => {
 
           <div>
             <div style={{ marginBottom: 6, opacity: 0.8 }}>设施</div>
-            <Space wrap>
-              {FACILITY_TAGS.map((t) => {
-                const active = query.facilities?.includes(t.code);
-                return (
-                  <Tag
-                    key={t.code}
-                    color={active ? "blue" : "default"}
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    onClick={() =>
-                      setQuery((q) => {
-                        const has = q.facilities.includes(t.code);
-                        const facilities = has
-                          ? q.facilities.filter((x) => x !== t.code)
-                          : [...q.facilities, t.code];
-                        return { ...q, facilities };
-                      })
-                    }
-                  >
-                    {t.label}
-                  </Tag>
-                );
-              })}
-            </Space>
+            <FacilitiesPicker
+              options={facilityOptions}
+              value={query.facilities}
+              onChange={(next) => setQuery((q) => ({ ...q, facilities: next }))}
+            />
             <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
               注：若 mock 数据无 facilities 字段，筛选不会减少列表，但 URL 参数会保留（联调后生效）
             </div>
@@ -432,7 +480,7 @@ const qs = useMemo(() => {
       {/* ===== 列表区 ===== */}
       <List
         grid={{ gutter: 16, column: 2 }}
-        dataSource={viewHotels}
+        dataSource={USE_MOCK ? viewHotels : hotels}
         renderItem={(h) => (
           <List.Item>
             <Card
@@ -449,15 +497,24 @@ const qs = useMemo(() => {
               <div>地址：{h.address}</div>
               <div>星级：{h.star_rating}</div>
               <div>起价：{h.min_price}</div>
-              {h.available && (
+              {/* {h.available && (
                 <div style={{ fontSize: 12, opacity: 0.7 }}>
                   可订：{h.available.from} ～ {h.available.to}
                 </div>
-              )}
+              )} */}
             </Card>
           </List.Item>
         )}
       />
+      <div style={{ textAlign: "center", marginTop: 16 }}>
+        <Button
+          disabled={!hasMore}
+          loading={loading}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          {hasMore ? "加载更多" : "没有更多了"}
+        </Button>
+      </div>   
     </div>
   );
 }
@@ -472,3 +529,4 @@ function compactQuery(q) {
   });
   return out;
 }
+

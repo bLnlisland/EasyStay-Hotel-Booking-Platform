@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect,useMemo, useState } from "react";
+import { http } from "../api/http";
 import {
   Row,
   Col,
@@ -14,34 +15,21 @@ import {
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { Carousel } from "antd";
+import FacilitiesPicker from "../components/FacilitiesPicker";
+import { fetchFacilityOptions } from "../api/facilities";
+import { parseFacilities, stringifyFacilities } from "../utils/facilities";
+import { useSearchParams } from "react-router-dom";
 
-const BANNER_HOTELS = [
-  {
-    id: 1,
-    title: "城市中心 · 高评分酒店",
-    image: "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0",
-  },
-  {
-    id: 2,
-    title: "商务出行首选",
-    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945",
-  },
-  {
-    id: 3,
-    title: "度假必住酒店",
-    image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa",
-  },
+
+const FALLBACK_BANNERS = [
+  { id: 1, title: "城市中心 · 高评分酒店", image: "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0" },
+  { id: 2, title: "商务出行首选", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945" },
+  { id: 3, title: "度假必住酒店", image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa" },
 ];
+
 
 const { RangePicker } = DatePicker;
 
-const FACILITY_TAGS = [
-  { label: "亲子", code: "family" },
-  { label: "豪华", code: "luxury" },
-  { label: "免费停车场", code: "parking" },
-  { label: "WiFi", code: "wifi" },
-  { label: "含早餐", code: "breakfast" },
-];
 
 // CRA：高德逆地理编码（lat/lng -> city）
 async function reverseGeocodeToCity(lat, lng) {
@@ -79,24 +67,32 @@ function normalizeCity(input) {
 }
 export default function Search() {
   const navigate = useNavigate();
+  const [banners, setBanners] = useState([]);
+  const [sp] = useSearchParams();
+  const [facilityOptions, setFacilityOptions] = useState([]);
+  useEffect(() => {
+  console.log("facilityOptions sample:", facilityOptions?.[0]);
+}, [facilityOptions]);
 
-  const [query, setQuery] = useState({
+  const [facilitySet, setFacilitySet] = useState(null);
+  const [query, setQuery] = useState(() => ({
     city: "",
-    keyword: "", // UI 预留（API 未定义，默认不拼进 qs）
+    keyword: "",
     check_in: null,
     check_out: null,
     guests: 2,
-
-    // ✅ API 支持的筛选
     star_rating: null,
     min_price: null,
     max_price: null,
-    facilities: [],
-
-    // 定位展示用
+    facilities: parseFacilities(sp.get("facilities")),
     lat: null,
     lng: null,
-  });
+    
+  }));
+  useEffect(() => {
+  console.log("query.facilities:", query.facilities);
+}, [query.facilities]);
+
 
   const useGeolocation = () => {
   if (!navigator.geolocation) return alert("当前浏览器不支持定位");
@@ -123,15 +119,33 @@ export default function Search() {
 };
 
 
-  const toggleFacility = (code) => {
-    setQuery((q) => {
-      const active = q.facilities.includes(code);
-      return {
-        ...q,
-        facilities: active ? q.facilities.filter((x) => x !== code) : [...q.facilities, code],
-      };
+
+  useEffect(() => {
+    fetchFacilityOptions().then((opts) => {
+      setFacilityOptions(opts);
+      setFacilitySet(new Set(opts));
+      // 可选：如果 URL 里带了 facilities，这里再过滤一次
+      setQuery((q) => ({ ...q, facilities: q.facilities.filter((x) => new Set(opts).has(x)) }));
     });
-  };
+  }, []);
+
+
+  useEffect(() => {
+  http
+    .get("/hotels/recommended")
+    .then((res) => {
+      if (!res?.success) return setBanners([]);
+      const list = res?.data?.hotels || [];
+      // 适配字段：有的返回 image，有的返回 images 数组
+      const mapped = list.map((h) => ({
+        id: h.id,
+        title: h.name_zh || h.name_en || "推荐酒店",
+        image: h.image || h.images?.[0]?.url || "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0",
+      }));
+      setBanners(mapped);
+    })
+    .catch(() => setBanners([]));
+}, []);
 
   const qs = useMemo(() => {
     const p = new URLSearchParams();
@@ -156,7 +170,7 @@ export default function Search() {
 
         {/* 1) Banner */}
         <Carousel autoplay style={{ marginBottom: 16 }}>
-          {BANNER_HOTELS.map((b) => (
+          {(banners.length ? banners : FALLBACK_BANNERS).map((b) => (
             <div
               key={b.id}
               onClick={() => navigate(`/hotel/${b.id}?${qs}`)}
@@ -296,21 +310,14 @@ export default function Search() {
 
             <Col span={12}>
               <div style={{ opacity: 0.8, marginBottom: 4 }}>快捷标签（设施）</div>
-              <Space wrap>
-                {FACILITY_TAGS.map((t) => {
-                  const active = query.facilities.includes(t.code);
-                  return (
-                    <Tag
-                      key={t.code}
-                      color={active ? "blue" : "default"}
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() => toggleFacility(t.code)}
-                    >
-                      {t.label}
-                    </Tag>
-                  );
-                })}
-              </Space>
+              <div style={{ fontSize: 12, opacity: 0.6 }}>options 数量：{facilityOptions.length}</div>
+              <FacilitiesPicker
+                options={facilityOptions}
+                value={query.facilities}
+                onChange={(next) =>
+                  setQuery((q) => ({ ...q, facilities: next }))
+                }
+              />
             </Col>
           </Row>
 
