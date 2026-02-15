@@ -9,6 +9,7 @@ router.post('/register', AuthController.register);// 用户注册
 // POST /api/auth/register
 router.post('/login', AuthController.login);// 用户登录
 // POST /api/auth/login
+router.post('/register/merchant', AuthController.registerMerchant);//商户注册
 
 // 需要认证的路由
 router.get('/profile', auth, AuthController.getProfile);// 更新当前登录用户信息
@@ -20,5 +21,7 @@ router.put('/change-password', auth, AuthController.changePassword);// 退出登
 router.post('/logout', auth, AuthController.logout);// 导出路由，供 app.js / index.js 使用
 
 router.get('/diagnose', AuthController.diagnose);
+
+router.post('/register/admin', auth, AuthController.registerAdmin);// 需要超级管理员权限：管理员注册
 
 module.exports = router;

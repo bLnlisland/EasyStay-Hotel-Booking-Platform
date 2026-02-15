@@ -127,6 +127,74 @@
   "message": "用户名或密码错误"
 }
 ```
+### 商户注册
+-**URL**-：/auth/register/merchant
+-**方法**-：POST
+-**权限**-：公开
+
+-**请求参数（JSON）**-：
+```json
+{
+  "username": "用户名",
+  "email": "邮箱",
+  "password": "密码",
+  "business_name": "商户名称",
+  "business_license": "统一社会信用代码（18位）",
+  "license_image": "营业执照图片 URL",
+  "contact_name": "联系人姓名",
+  "phone": "联系电话",
+  "address": "经营地址（可选）",
+  "full_name": "负责人姓名（可选）"
+}
+```
+-**响应示例（成功）**-：
+
+```json
+{
+  "success": true,
+  "message": "商户注册成功，请等待管理员审核",
+  "data": {
+    "id": 2,
+    "username": "merchant1",
+    "email": "merchant@test.com",
+    "role": "merchant",
+    "approval_status": "pending",
+    "business_name": "测试酒店"
+  }
+}
+```
+-**说明**-：注册后 approval_status 为 pending，需管理员审核通过后方可登录。
+
+###  管理员注册
+-**URL**-：/auth/register/admin
+-**方法**-：POST
+-**权限**-：仅限超级管理员（role = superadmin）
+
+-**请求参数（JSON）**-：
+
+```json
+{
+  "username": "用户名",
+  "email": "邮箱",
+  "password": "密码",
+  "full_name": "姓名（可选）",
+  "phone": "手机号（可选）"
+}
+```
+-**响应示例（成功）**-：
+
+```json
+{
+  "success": true,
+  "message": "管理员创建成功",
+  "data": {
+    "id": 3,
+    "username": "admin1",
+    "email": "admin@test.com",
+    "role": "admin"
+  }
+}
+```
 #### 获取当前用户信息
 -**URL**: /api/auth/profile
 -**方法**: GET

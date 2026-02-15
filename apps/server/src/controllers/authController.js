@@ -2,17 +2,40 @@
 const db = require('../models');  // 导入数据库对象
 const User = db.User;  // 从数据库对象中获取User模型
 const Joi = require('joi');
-const { Sequelize } = require('sequelize');  // 添加这行
+//const Op = Sequelize.Op;
+const { Sequelize, Op } = require('sequelize');
 // Joi验证模式
-const registerSchema = Joi.object({
+// 基础注册验证（普通用户）
+const registerUserSchema = Joi.object({
   username: Joi.string().min(3).max(50).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).max(100).required(),
-  role: Joi.string().valid('merchant', 'admin', 'user').default('user'),  // 添加'admin'
-  full_name: Joi.string().max(100),
-  phone: Joi.string().max(20),
+  full_name: Joi.string().max(100).optional(),
+  phone: Joi.string().max(20).optional(),
 });
 
+// 商户注册验证
+const registerMerchantSchema = Joi.object({
+  username: Joi.string().min(3).max(50).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(6).max(100).required(),
+  business_name: Joi.string().max(100).required(),
+  business_license: Joi.string().length(18).required(), // 统一信用代码18位
+  license_image: Joi.string().uri().required(),        // 图片URL
+  contact_name: Joi.string().max(100).required(),
+  phone: Joi.string().max(20).required(),
+  address: Joi.string().max(200).optional(),
+  full_name: Joi.string().max(100).optional(),
+});
+
+// 管理员注册验证（仅超级管理员调用）
+const registerAdminSchema = Joi.object({
+  username: Joi.string().min(3).max(50).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(6).max(100).required(),
+  full_name: Joi.string().max(100).optional(),
+  phone: Joi.string().max(20).optional(),
+});
 const loginSchema = Joi.object({
   username: Joi.string().required(),
   password: Joi.string().required(),
@@ -21,123 +44,69 @@ const loginSchema = Joi.object({
 class AuthController {
   // 用户注册 - 只保留这一个方法
   static async register(req, res) {
-    console.log('🔵 [注册开始] ======================================');
-    console.log('请求体:', JSON.stringify(req.body, null, 2));
-    
-    try {
-      
-      // 验证请求数据
-      console.log('🔵 [1. Joi验证开始]');
-      const { error } = registerSchema.validate(req.body);
-      if (error) {
-        console.log('❌ Joi验证失败:', error.details);
-        return res.status(400).json({
-          success: false,
-          message: '请求数据验证失败',
-          errors: error.details.map(detail => detail.message)
-        });
-      }
-      console.log('✅ Joi验证通过');
-
-      const { username, email, password, full_name, phone, role = 'user' } = req.body;
-      
-      console.log(`🔵 [2. 检查用户名] ${username}`);
-      const existingUser = await User.findOne({ where: { username } });
-      if (existingUser) {
-        console.log(`❌ 用户名已存在: ${username}`);
-        return res.status(400).json({
-          success: false,
-          message: '用户名已存在'
-        });
-      }
-      console.log('✅ 用户名可用');
-
-      console.log(`🔵 [3. 检查邮箱] ${email}`);
-      const existingEmail = await User.findOne({ where: { email } });
-      if (existingEmail) {
-        console.log(`❌ 邮箱已注册: ${email}`);
-        return res.status(400).json({
-          success: false,
-          message: '邮箱已注册'
-        });
-      }
-      console.log('✅ 邮箱可用');
-
-      console.log('🔵 [4. 创建用户]');
-      console.log('创建数据:', { username, email, password: '***', role, full_name, phone });
-      
-      // 创建用户
-      const user = await User.create({
-        username,
-        email,
-        password,
-        role: role || 'user',
-        full_name,
-        phone,
-      });
-      
-      console.log(`✅ 用户创建成功，ID: ${user.id}`);
-
-      // 生成令牌
-      const token = user.generateToken();
-      console.log('✅ Token生成成功');
-
-      // 更新最后登录时间
-      await user.update({ last_login: new Date() });
-      console.log('✅ 最后登录时间更新');
-
-      // 返回响应
-      const userResponse = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        full_name: user.full_name,
-        phone: user.phone,
-        avatar: user.avatar,
-        is_active: user.is_active,
-      };
-
-      console.log('✅ [注册成功] 返回响应');
-      console.log('🟢 [注册结束] ======================================\n');
-      
-      res.status(201).json({
-        success: true,
-        message: '注册成功',
-        data: {
-          user: userResponse,
-          token,
-        }
-      });
-      
-    } catch (error) {
-      console.error('🔴 [注册错误] ====================================');
-      console.error('错误名称:', error.name);
-      console.error('错误信息:', error.message);
-      console.error('完整堆栈:', error.stack);
-      
-      // 如果是Sequelize错误，显示更多详情
-      if (error.name === 'SequelizeValidationError') {
-        console.error('验证错误详情:');
-        error.errors.forEach((err, i) => {
-          console.error(`  ${i+1}. 字段 ${err.path}: ${err.message}`);
-        });
-      } else if (error.name === 'SequelizeDatabaseError') {
-        console.error('数据库错误详情:', error.parent?.message || error.message);
-      } else if (error.name === 'SequelizeUniqueConstraintError') {
-        console.error('唯一约束错误:', error.errors);
-      }
-      
-      console.error('请求数据:', JSON.stringify(req.body, null, 2));
-      console.error('🔴 [错误结束] ====================================\n');
-      
-      res.status(500).json({
+  try {
+    // 只允许注册普通用户（role = user）
+    const { error } = registerUserSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
         success: false,
-        message: '注册失败，服务器错误'
+        message: '请求数据验证失败',
+        errors: error.details.map(d => d.message)
       });
     }
-  }
 
+    const { username, email, password, full_name, phone } = req.body;
+
+    // 检查用户名/邮箱是否已存在
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ username }, { email }]
+      }
+    });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名或邮箱已存在'
+      });
+    }
+
+    // 创建普通用户，角色为 user，直接激活
+    const user = await User.create({
+      username,
+      email,
+      password,
+      role: 'user',
+      approval_status: 'approved', // 普通用户无需审核
+      full_name,
+      phone,
+      is_active: true
+    });
+
+    // 生成 token（可选，注册后是否自动登录）
+    const token = user.generateToken();
+
+    res.status(201).json({
+      success: true,
+      message: '注册成功',
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          full_name: user.full_name
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('注册错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '注册失败，服务器错误'
+    });
+  }
+}
 // 用户登录
 static async login(req, res) {
   try {
@@ -189,7 +158,18 @@ static async login(req, res) {
         message: '账户已被禁用，请联系管理员'
       });
     }
+    // 新增：商户审核状态判断
+    if (user.role === 'merchant' && user.approval_status !== 'approved') {
+      return res.status(401).json({
+        success: false,
+        message: user.approval_status === 'pending' ? '商户账户待审核' : '商户账户审核未通过'
+      });
+    }
 
+    const isValid = await user.verifyPassword(req.body.password);
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: '用户名或密码错误' });
+    }
     console.log('🔵 开始验证密码...');
     // 验证密码
     const isValidPassword = await user.verifyPassword(password);
@@ -411,6 +391,144 @@ static async login(req, res) {
       });
     }
   }
+  // ==================== 新增：商户注册 ====================
+  static async registerMerchant(req, res) {
+  try {
+    const { error } = registerMerchantSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: '请求数据验证失败',
+        errors: error.details.map(d => d.message)
+      });
+    }
+
+    const {
+      username,
+      email,
+      password,
+      business_name,
+      business_license,
+      license_image,
+      contact_name,
+      phone,
+      address,
+      full_name
+    } = req.body;
+
+    // 检查用户名/邮箱是否已存在
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ username }, { email }]
+      }
+    });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名或邮箱已存在'
+      });
+    }
+
+    // 创建商户用户，待审核
+    const user = await User.create({
+      username,
+      email,
+      password,
+      role: 'merchant',
+      approval_status: 'pending',
+      business_name,
+      business_license,
+      license_image,
+      contact_name,
+      phone,
+      address,
+      full_name,
+      is_active: true
+    });
+
+    res.status(201).json({
+      success: true,
+      message: '商户注册成功，请等待管理员审核',
+      data: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        approval_status: user.approval_status,
+        business_name: user.business_name
+      }
+    });
+  } catch (error) {
+    console.error('商户注册错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '注册失败，服务器错误'
+    });
+  }
+}
+  // ==================== 新增：管理员注册（仅超级管理员可调用） ====================
+  static async registerAdmin(req, res) {
+  try {
+    // 检查当前用户是否为超级管理员（需要预先在数据库中创建超级管理员）
+    if (!req.user || req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: '需要超级管理员权限'
+      });
+    }
+
+    const { error } = registerAdminSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: '请求数据验证失败',
+        errors: error.details.map(d => d.message)
+      });
+    }
+
+    const { username, email, password, full_name, phone } = req.body;
+
+    const existing = await User.findOne({
+      where: {
+        [Op.or]: [{ username }, { email }]
+      }
+    });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名或邮箱已存在'
+      });
+    }
+
+    const admin = await User.create({
+      username,
+      email,
+      password,
+      role: 'admin',
+      approval_status: 'approved',
+      is_active: true,
+      full_name,
+      phone
+    });
+
+    res.status(201).json({
+      success: true,
+      message: '管理员创建成功',
+      data: {
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    console.error('创建管理员错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误'
+    });
+  }
+}
 }
 
 module.exports = AuthController;

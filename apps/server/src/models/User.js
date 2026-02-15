@@ -36,10 +36,37 @@ User.init({
     },
   },
   role: {  // 用户角色（商户、管理员、普通用户），默认值为 'user'
-    type: DataTypes.ENUM('merchant', 'admin', 'user'),
+    type: DataTypes.ENUM('merchant', 'admin', 'user', 'superadmin'),
     defaultValue: 'user',
     allowNull: false,
   },
+  approval_status: {
+  type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+  defaultValue: 'pending',  // 新注册商户默认为待审核
+  allowNull: false,
+  field: 'approval_status'  // 数据库中字段名
+},
+business_name: {
+  type: DataTypes.STRING(100),
+  allowNull: true,
+  field: 'business_name'
+},
+business_license: {
+  type: DataTypes.STRING(100),
+  allowNull: true,
+  field: 'business_license'
+},
+license_image: {
+  type: DataTypes.STRING(500),
+  allowNull: true,
+  field: 'license_image'
+},
+// phone 字段已存在，可复用
+// address 如果需要，也可添加
+address: {
+  type: DataTypes.STRING(200),
+  allowNull: true
+},
   full_name: {  // 用户全名，可以为空
     type: DataTypes.STRING(100),
   },
