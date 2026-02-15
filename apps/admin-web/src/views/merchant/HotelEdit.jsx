@@ -11,16 +11,23 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
-// 设施选项列表
+// 设施选项列表（与 API /api/hotels/facilities/options 保持一致）
 const facilityOptions = [
-  { label: '免费WiFi', value: 'wifi' },
-  { label: '免费停车场', value: 'parking' },
-  { label: '早餐服务', value: 'breakfast' },
-  { label: '电梯', value: 'elevator' },
-  { label: '空调', value: 'airCondition' },
-  { label: '热水', value: 'hotWater' },
-  { label: '洗衣房', value: 'laundry' },
-  { label: '健身房', value: 'gym' },
+  { label: '免费WiFi', value: '免费WiFi' },
+  { label: '停车场', value: '停车场' },
+  { label: '游泳池', value: '游泳池' },
+  { label: '健身房', value: '健身房' },
+  { label: '餐厅', value: '餐厅' },
+  { label: '会议室', value: '会议室' },
+  { label: '商务中心', value: '商务中心' },
+  { label: '机场接送', value: '机场接送' },
+  { label: '洗衣服务', value: '洗衣服务' },
+  { label: '叫车服务', value: '叫车服务' },
+  { label: '无障碍设施', value: '无障碍设施' },
+  { label: '24小时前台', value: '24小时前台' },
+  { label: '行李寄存', value: '行李寄存' },
+  { label: '外币兑换', value: '外币兑换' },
+  { label: '旅游票务', value: '旅游票务' },
 ];
 
 // 床型选项

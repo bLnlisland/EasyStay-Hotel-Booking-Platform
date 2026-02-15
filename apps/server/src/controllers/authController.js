@@ -1,6 +1,7 @@
 // src/controllers/authController.js - 认证控制器
 const db = require('../models');  // 导入数据库对象
 const User = db.User;  // 从数据库对象中获取User模型
+// 确保有这样的导入语句
 const Joi = require('joi');
 //const Op = Sequelize.Op;
 const { Sequelize, Op } = require('sequelize');
@@ -108,6 +109,7 @@ class AuthController {
   }
 }
 // 用户登录
+// 用户登录
 static async login(req, res) {
   try {
     console.log('🔵 [登录开始] ======================================');
@@ -126,12 +128,9 @@ static async login(req, res) {
     console.log('✅ [登录Joi验证通过]');
 
     const { username, password } = req.body;
-
     console.log(`🔵 [查找用户] 使用标识符: ${username}`);
     
-    // 方法1：使用导入的 Sequelize.Op
-    const Op = Sequelize.Op;  // 使用导入的Sequelize
-    
+    // 查找用户（无需重复定义Op，顶部已导入）
     const user = await User.findOne({
       where: {
         [Op.or]: [
@@ -158,21 +157,14 @@ static async login(req, res) {
         message: '账户已被禁用，请联系管理员'
       });
     }
-    // 新增：商户审核状态判断
-    if (user.role === 'merchant' && user.approval_status !== 'approved') {
-      return res.status(401).json({
-        success: false,
-        message: user.approval_status === 'pending' ? '商户账户待审核' : '商户账户审核未通过'
-      });
-    }
 
-    const isValid = await user.verifyPassword(req.body.password);
-    if (!isValid) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' });
-    }
+    // 唯一的密码校验 + 详细日志
     console.log('🔵 开始验证密码...');
-    // 验证密码
+    console.log('🔵 前端传入明文密码:', password);
+    console.log('🔵 数据库加密密码:', user.password);
     const isValidPassword = await user.verifyPassword(password);
+    console.log('🔵 密码校验结果:', isValidPassword);
+
     if (!isValidPassword) {
       console.log('❌ 密码错误');
       return res.status(401).json({

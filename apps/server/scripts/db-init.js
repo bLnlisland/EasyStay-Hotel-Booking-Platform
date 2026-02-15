@@ -218,7 +218,7 @@ class DatabaseManager {
   }
 
   /**
-   * 插入测试数据
+   * 插入测试数据（新增 superadmin 超级管理员）
    */
   async seedDatabase() {
     try {
@@ -227,20 +227,27 @@ class DatabaseManager {
       }
 
       const bcrypt = require('bcryptjs');
+      const superAdminPwd = await bcrypt.hash('superadmin123', 10); // 超级管理员密码
       const adminPwd = await bcrypt.hash('admin123', 10);
       const merchantPwd = await bcrypt.hash('merchant123', 10);
       const userPwd = await bcrypt.hash('user123', 10);
 
       const seeds = [
-        `INSERT INTO users (username, email, password, role, full_name, phone, avatar, is_active) VALUES
-         ('admin', 'admin@hotel.com', '${adminPwd}', 'admin', '系统管理员', '13800138000', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true),
-         ('merchant1', 'merchant@hotel.com', '${merchantPwd}', 'merchant', '酒店商户', '13800138001', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true),
-         ('user1', 'user@example.com', '${userPwd}', 'user', '普通用户', '13800138002', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true)
+        // 新增：超级管理员账号（role = superadmin）
+        `INSERT INTO users (username, email, password, role, approval_status, full_name, phone, avatar, is_active) VALUES
+         ('superadmin', 'superadmin@hotel.com', '${superAdminPwd}', 'superadmin', 'approved', '超级管理员', '13800138000', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true)
+         ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`,
+
+        // 原有管理员/商户/普通用户
+        `INSERT INTO users (username, email, password, role, approval_status, full_name, phone, avatar, is_active) VALUES
+         ('admin', 'admin@hotel.com', '${adminPwd}', 'admin', 'approved', '系统管理员', '13800138001', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true),
+         ('merchant1', 'merchant@hotel.com', '${merchantPwd}', 'merchant', 'approved', '酒店商户', '13800138002', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true),
+         ('user1', 'user@example.com', '${userPwd}', 'user', 'approved', '普通用户', '13800138003', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true)
          ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`,
 
         `INSERT INTO hotels (merchant_id, name_zh, name_en, address, city, province, star_rating, opening_year, facilities, status, contact_phone, contact_email) VALUES
-         (2, '上海外滩大酒店', 'Shanghai Bund Hotel', '上海市黄浦区南京东路123号', '上海', '上海市', 5, 2018, '["wifi", "parking", "gym", "pool", "restaurant", "spa"]', 'approved', '021-12345678', 'reservation@bundhotel.com'),
-         (2, '北京王府井酒店', 'Beijing Wangfujing Hotel', '北京市东城区王府井大街456号', '北京', '北京市', 4, 2019, '["wifi", "breakfast", "concierge", "laundry"]', 'approved', '010-87654321', 'info@wangfujinghotel.com')
+         (3, '上海外滩大酒店', 'Shanghai Bund Hotel', '上海市黄浦区南京东路123号', '上海', '上海市', 5, 2018, '["wifi", "parking", "gym", "pool", "restaurant", "spa"]', 'approved', '021-12345678', 'reservation@bundhotel.com'),
+         (3, '北京王府井酒店', 'Beijing Wangfujing Hotel', '北京市东城区王府井大街456号', '北京', '北京市', 4, 2019, '["wifi", "breakfast", "concierge", "laundry"]', 'approved', '010-87654321', 'info@wangfujinghotel.com')
          ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`,
 
         `INSERT INTO room_types (hotel_id, name, description, area, max_guests, bed_type, facilities, base_price, discount_rate, available_count) VALUES
@@ -260,7 +267,7 @@ class DatabaseManager {
          ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`
       ];
 
-      console.log('🌱 开始插入测试数据...');
+      console.log('🌱 开始插入测试数据（含超级管理员）...');
       for (let i = 0; i < seeds.length; i++) {
         await this.connection.query(seeds[i]);
         console.log(`✅ 数据插入成功 (${i + 1}/${seeds.length})`);
@@ -348,7 +355,7 @@ async function main() {
 
 命令:
   init     初始化数据库结构（自动创建库+表）
-  seed     插入测试数据
+  seed     插入测试数据（含超级管理员）
   backup   备份当前环境数据库
   reset    重置数据库（删除→重建→种子）
 

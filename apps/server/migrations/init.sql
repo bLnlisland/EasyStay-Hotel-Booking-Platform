@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(100),
   phone VARCHAR(20),
   avatar VARCHAR(500) DEFAULT '/default-avatar.png',
+  `approval_status` ENUM('pending', 'approved', 'rejected') DEFAULT 'approved',
   is_active BOOLEAN DEFAULT TRUE,
   last_login DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -26,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 酒店表
 CREATE TABLE IF NOT EXISTS hotels (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  merchant_id INT NOT NULL,
+  merchant_id INT NULL,
   name_zh VARCHAR(200) NOT NULL,
   name_en VARCHAR(200),
   description TEXT,
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS hotels (
 -- 房型表
 CREATE TABLE IF NOT EXISTS room_types (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  hotel_id INT NOT NULL,
+  hotel_id INT NULL,
   name VARCHAR(100) NOT NULL,
   description TEXT,
   area DECIMAL(6, 2),
@@ -79,7 +80,7 @@ CREATE TABLE IF NOT EXISTS room_types (
 -- 酒店图片表
 CREATE TABLE IF NOT EXISTS hotel_images (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  hotel_id INT NOT NULL,
+  hotel_id INT NULL,
   url VARCHAR(500) NOT NULL,
   alt_text VARCHAR(200),
   is_main BOOLEAN DEFAULT FALSE,

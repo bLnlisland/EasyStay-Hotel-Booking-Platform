@@ -6,6 +6,8 @@ require('dotenv').config();
 // 导入路由
 const authRoutes = require('./routes/authRoutes');
 const hotelRoutes = require('./routes/hotelRoutes');
+const db = require('./models');
+const { sequelize } = db;
 
 // 导入中间件
 const { errorHandler } = require('./middlewares/auth');
@@ -91,7 +93,7 @@ const startServer = async () => {
     }
     
     const PORT = process.env.PORT || 3000;
-    
+    await sequelize.sync({ alter: true });
     app.listen(PORT, () => {
       console.log(`
 🚀 服务器启动成功！
