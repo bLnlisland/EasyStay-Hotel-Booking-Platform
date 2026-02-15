@@ -6,7 +6,7 @@ import './Register.css';
 
 const { Title } = Typography;
 
-const ServerRegister = () => {
+const MerchantRegister = () => {
   const formRef = useRef(null);
   const [fileList, setFileList] = useState([]);
   const [registerSuccess, setRegisterSuccess] = useState(false);
@@ -51,7 +51,7 @@ const ServerRegister = () => {
         role: role,
         // 仅商户保留额外信息
         ...(role === 'merchant' && {
-          serverName: values.serverName,
+          merchantName: values.merchantName,
           contactName: values.contactName,
           phone: values.phone,
           businessLicense: values.businessLicense,
@@ -95,7 +95,7 @@ const ServerRegister = () => {
   };
 
   return (
-    <div className="server-register-container">
+    <div className="merchant-register-container">
       <Card className="register-card" hoverable bordered={false} style={{ maxWidth: '500px', margin: '80px auto', padding: '30px' }}>
         <Title level={2} className="register-title" style={{ textAlign: 'center', marginBottom: '30px', color: '#1677ff' }}>
           用户注册
@@ -178,7 +178,7 @@ const ServerRegister = () => {
               {/* 商户名称 */}
               <Form.Item
                 label="商户名称"
-                name="serverName"
+                name="merchantName"
                 rules={[{ required: true }, { max: 50 }]}
               >
                 <Input placeholder="请输入商户全称" maxLength={50} showCount />
@@ -248,4 +248,4 @@ const ServerRegister = () => {
   );
 };
 
-export default ServerRegister;
+export default MerchantRegister;

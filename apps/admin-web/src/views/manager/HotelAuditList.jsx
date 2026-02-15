@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Tag, Space, Card, Typography } from 'antd';
+import { Table, Button, Tag, Space, Card, Typography, Modal } from 'antd';
 import { useNavigate, Link } from 'react-router-dom';
 
 const { Title } = Typography;
@@ -100,14 +100,15 @@ const HotelAuditList = () => {
           >
             审核详情
           </Button>
-          {/* 快捷发布/下线（仅审核通过的酒店） */}
+          {/* 上下线操作：仅审核通过的酒店可由管理员选择上线/下线 */}
           {record.auditStatus === AUDIT_STATUS.PASS && (
             <Button 
               size="small" 
+              type={record.publishStatus === PUBLISH_STATUS.ONLINE ? 'default' : 'primary'}
               danger={record.publishStatus === PUBLISH_STATUS.ONLINE}
               onClick={() => handleQuickPublish(record)}
             >
-              {record.publishStatus === PUBLISH_STATUS.ONLINE ? '下线' : '发布'}
+              {record.publishStatus === PUBLISH_STATUS.ONLINE ? '下线' : '上线'}
             </Button>
           )}
         </Space>
@@ -115,27 +116,38 @@ const HotelAuditList = () => {
     },
   ];
 
-  // 快捷发布/下线（列表页快捷操作）
+  // 管理员选择上线/下线（仅审核通过的酒店可操作）
   const handleQuickPublish = (record) => {
-    try {
-      const updatedList = hotelList.map(hotel => {
-        if (hotel.id === record.id) {
-          return {
-            ...hotel,
-            publishStatus: hotel.publishStatus === PUBLISH_STATUS.ONLINE 
-              ? PUBLISH_STATUS.OFFLINE 
-              : PUBLISH_STATUS.ONLINE
-          };
+    const isOnline = record.publishStatus === PUBLISH_STATUS.ONLINE;
+    const action = isOnline ? '下线' : '上线';
+    Modal.confirm({
+      title: `确认${action}`,
+      content: `确定要将酒店【${record.hotelName}】${action}吗？`,
+      okText: '确认',
+      cancelText: '取消',
+      onOk: () => {
+        try {
+          const updatedList = hotelList.map(hotel => {
+            if (hotel.id === record.id) {
+              return {
+                ...hotel,
+                publishStatus: hotel.publishStatus === PUBLISH_STATUS.ONLINE 
+                  ? PUBLISH_STATUS.OFFLINE 
+                  : PUBLISH_STATUS.ONLINE
+              };
+            }
+            return hotel;
+          });
+          localStorage.setItem('hotelList', JSON.stringify(updatedList));
+          localStorage.setItem('merchantHotels', JSON.stringify(updatedList));
+          setHotelList(updatedList);
+          Modal.success({ content: `${action}成功` });
+        } catch (error) {
+          console.error('操作失败：', error);
+          Modal.error({ content: `${action}失败，请重试` });
         }
-        return hotel;
-      });
-      // 同步保存到本地存储
-      localStorage.setItem('hotelList', JSON.stringify(updatedList));
-      localStorage.setItem('merchantHotels', JSON.stringify(updatedList));
-      setHotelList(updatedList);
-    } catch (error) {
-      console.error('快捷操作失败：', error);
-    }
+      }
+    });
   };
 
   return (

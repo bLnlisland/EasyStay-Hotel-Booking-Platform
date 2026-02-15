@@ -21,7 +21,7 @@ const PrivateRoute = ({ children, requiredRole }) => {
 
   // 2. 角色不匹配 → 跳对应角色的首页
   if (currentRole !== requiredRole) {
-    const redirectPath = currentRole === 'admin' ? '/manager/home' : '/server/home';
+    const redirectPath = currentRole === 'admin' ? '/manager/home' : '/merchant/home';
     return <Navigate to={redirectPath} replace />;
   }
 

@@ -143,12 +143,13 @@ const HotelAuditDetail = () => {
 
         // 2. 更新当前酒店的审核状态（同步修改）
         const updatedHotels = allHotels.map(hotel => {
-          if (hotel.id === id) {
+          if (hotel && String(hotel.id) === String(id)) {
             return {
               ...hotel,
               auditStatus: values.auditStatus,
               rejectReason: values.auditStatus === AUDIT_STATUS.REJECT ? values.rejectReason : '',
-              // 同步更新时间（可选）
+              // 审核不通过时强制下线，只有审核通过才能由管理员选择上线
+              publishStatus: values.auditStatus === AUDIT_STATUS.REJECT ? PUBLISH_STATUS.OFFLINE : (hotel.publishStatus || PUBLISH_STATUS.OFFLINE),
               auditTime: new Date().toLocaleString()
             };
           }
@@ -174,7 +175,8 @@ const HotelAuditDetail = () => {
         setHotelInfo(prev => ({
           ...prev,
           auditStatus: values.auditStatus,
-          rejectReason: values.auditStatus === AUDIT_STATUS.REJECT ? values.rejectReason : ''
+          rejectReason: values.auditStatus === AUDIT_STATUS.REJECT ? values.rejectReason : '',
+          publishStatus: values.auditStatus === AUDIT_STATUS.REJECT ? PUBLISH_STATUS.OFFLINE : (prev.publishStatus || PUBLISH_STATUS.OFFLINE)
         }));
 
       } catch (err) {
@@ -192,6 +194,46 @@ const HotelAuditDetail = () => {
         content: '请选择审核结果（不通过时必须填写原因）',
         okText: '确定'
       });
+    });
+  };
+
+  // 管理员选择上线/下线（仅审核通过的酒店可操作）
+  const handlePublishToggle = () => {
+    if (!hotelInfo) return;
+    const isOnline = hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE;
+    const action = isOnline ? '下线' : '上线';
+    Modal.confirm({
+      title: `确认${action}`,
+      content: `确定要将酒店【${hotelInfo.hotelName}】${action}吗？`,
+      okText: '确认',
+      cancelText: '取消',
+      onOk: () => {
+        try {
+          let allHotels = [];
+          const hotelListData = localStorage.getItem('hotelList');
+          const merchantHotelsData = localStorage.getItem('merchantHotels');
+          if (hotelListData) allHotels = JSON.parse(hotelListData) || [];
+          if (allHotels.length === 0 && merchantHotelsData) allHotels = JSON.parse(merchantHotelsData) || [];
+
+          const newStatus = isOnline ? PUBLISH_STATUS.OFFLINE : PUBLISH_STATUS.ONLINE;
+          const updatedHotels = allHotels.map(hotel => {
+            if (hotel && String(hotel.id) === String(id)) {
+              return { ...hotel, publishStatus: newStatus };
+            }
+            return hotel;
+          });
+
+          localStorage.setItem('hotelList', JSON.stringify(updatedHotels));
+          localStorage.setItem('merchantHotels', JSON.stringify(updatedHotels));
+          window.dispatchEvent(new Event('storage'));
+
+          setHotelInfo(prev => ({ ...prev, publishStatus: newStatus }));
+          Modal.success({ content: `${action}成功` });
+        } catch (err) {
+          console.error('操作失败：', err);
+          Modal.error({ content: `${action}失败，请重试` });
+        }
+      }
     });
   };
 
@@ -272,56 +314,6 @@ const HotelAuditDetail = () => {
           )}
         </Descriptions>
 
-// 基础信息部分的开头，新增图片展示
-<Descriptions
-  title={
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      基础信息
-      {hotelInfo.hotelImage && (
-        <img
-          src={hotelInfo.hotelImage}
-          alt={hotelInfo.hotelName}
-          style={{
-            width: 80,
-            height: 60,
-            objectFit: 'cover',
-            borderRadius: 4,
-            cursor: 'pointer',
-          }}
-          onClick={() => {
-            Modal.info({
-              title: hotelInfo.hotelName,
-              content: <img src={hotelInfo.hotelImage} alt={hotelInfo.hotelName} style={{ width: '100%' }} />,
-              width: 600,
-            });
-          }}
-        />
-      )}
-      {/* 无图片时显示占位图 */}
-      {!hotelInfo.hotelImage && (
-        <div style={{
-          width: 80,
-          height: 60,
-          backgroundColor: '#f5f5f5',
-          borderRadius: 4,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#999',
-          fontSize: 12
-        }}>
-          暂无图片
-        </div>
-      )}
-    </div>
-  }
-  bordered
-  column={{ xs: 1, sm: 2, md: 3, lg: 3 }}
-  style={{ marginBottom: 30 }}
->
-  {/* 原有字段... */}
-</Descriptions>
-
         <Divider />
 
         {/* 审核操作表单（同步本地最新状态） */}
@@ -369,13 +361,30 @@ const HotelAuditDetail = () => {
             <Space>
               <Button type="primary" htmlType="submit">提交审核结果</Button>
               <Button onClick={() => navigate('/manager/hotel-audit')}>取消</Button>
-              {/* Link跳转回列表页（备用，同步路由） */}
               <Link to="/manager/hotel-audit">
                 <Button type="text">返回审核列表</Button>
               </Link>
             </Space>
           </Form.Item>
         </Form>
+
+        {/* 上下线操作：仅审核通过的酒店可由管理员选择上线/下线 */}
+        {hotelInfo.auditStatus === AUDIT_STATUS.PASS && (
+          <>
+            <Divider />
+            <Title level={5} style={{ marginBottom: 16 }}>发布操作</Title>
+            <Space>
+              <Button
+                type={hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE ? 'default' : 'primary'}
+                danger={hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE}
+                onClick={handlePublishToggle}
+              >
+                {hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE ? '下线' : '上线'}
+              </Button>
+              <Text type="secondary">只有审核通过的酒店才可以上线</Text>
+            </Space>
+          </>
+        )}
       </Card>
     </div>
   );

@@ -1,5 +1,5 @@
 /* 服务商注册页面样式 */
-.server-register-container {
+.merchant-register-container {
   width: 100%;
   max-width: 800px;
   margin: 50px auto;
@@ -43,7 +43,7 @@
 
 /* 适配不同屏幕尺寸 */
 @media (max-width: 768px) {
-  .server-register-container {
+  .merchant-register-container {
     margin: 20px auto;
   }
   .register-card {
