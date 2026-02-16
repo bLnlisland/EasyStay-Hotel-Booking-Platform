@@ -776,8 +776,9 @@ static async searchHotels(req, res) {
       if (userRole === 'merchant') {
         where.merchant_id = userId;
       }
-      // 如果是管理员，可以查看所有酒店
-      
+      // 不展示已删除的酒店
+      where.status = { [Op.notIn]: ['deleted'] };
+
       const hotels = await Hotel.findAll({
         where,
         include: [
@@ -805,22 +806,77 @@ static async searchHotels(req, res) {
     }
   }
 
+  // 获取当前商户的单个酒店详情（含房型，用于编辑页）
+  static async getMyHotelById(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+
+      const hotel = await Hotel.findByPk(id, {
+        include: [
+          { model: HotelImage, as: 'images' },
+          { model: RoomType, as: 'room_types' }
+        ]
+      });
+
+      if (!hotel) {
+        return res.status(404).json({ success: false, message: '酒店不存在' });
+      }
+      if (userRole === 'merchant' && hotel.merchant_id !== userId) {
+        return res.status(403).json({ success: false, message: '无权查看此酒店' });
+      }
+      if (hotel.status === 'deleted') {
+        return res.status(404).json({ success: false, message: '酒店不存在' });
+      }
+
+      const data = hotel.toJSON ? hotel.toJSON() : hotel;
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('获取酒店详情错误:', error);
+      res.status(500).json({
+        success: false,
+        message: '获取酒店详情失败',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
   // 创建新酒店
   static async createHotel(req, res) {
     try {
       const userId = req.user.id;
-      const hotelData = req.body;
-      
-      // 设置商户ID
-      hotelData.merchant_id = userId;
-      hotelData.status = 'draft'; // 初始状态为草稿
-      
+      const body = req.body;
+      const { room_types, ...hotelFields } = body;
+
+      const hotelData = {
+        ...hotelFields,
+        merchant_id: userId,
+        status: 'draft'
+      };
       const hotel = await Hotel.create(hotelData);
-      
+
+      // 保存房型到 room_types 表，便于编辑时回显
+      if (Array.isArray(room_types) && room_types.length > 0) {
+        await RoomType.bulkCreate(
+          room_types.map(rt => ({
+            hotel_id: hotel.id,
+            name: rt.name || '未命名房型',
+            base_price: Number(rt.base_price) || 0,
+            discount_rate: Math.min(1, Math.max(0.1, Number(rt.discount_rate) || 1)),
+            is_available: true
+          }))
+        );
+      }
+
+      const hotelWithRooms = await Hotel.findByPk(hotel.id, {
+        include: [{ model: RoomType, as: 'room_types' }]
+      });
+
       res.status(201).json({
         success: true,
         message: '酒店创建成功',
-        data: hotel
+        data: hotelWithRooms
       });
     } catch (error) {
       console.error('创建酒店错误:', error);
@@ -838,33 +894,51 @@ static async searchHotels(req, res) {
       const { id } = req.params;
       const userId = req.user.id;
       const userRole = req.user.role;
-      const updateData = req.body;
-      
-      // 查找酒店
+      const body = req.body;
+      const { room_types, ...updateData } = body;
+
       const hotel = await Hotel.findByPk(id);
-      
+
       if (!hotel) {
         return res.status(404).json({
           success: false,
           message: '酒店不存在'
         });
       }
-      
-      // 检查权限：商户只能更新自己的酒店
+
       if (userRole === 'merchant' && hotel.merchant_id !== userId) {
         return res.status(403).json({
           success: false,
           message: '无权更新此酒店'
         });
       }
-      
-      // 更新酒店
+
       await hotel.update(updateData);
-      
+
+      // 若提交了 room_types，则同步到 room_types 表（先删后增）
+      if (Array.isArray(room_types)) {
+        await RoomType.destroy({ where: { hotel_id: id } });
+        if (room_types.length > 0) {
+          await RoomType.bulkCreate(
+            room_types.map(rt => ({
+              hotel_id: id,
+              name: rt.name || '未命名房型',
+              base_price: Number(rt.base_price) || 0,
+              discount_rate: Math.min(1, Math.max(0.1, Number(rt.discount_rate) || 1)),
+              is_available: true
+            }))
+          );
+        }
+      }
+
+      const updated = await Hotel.findByPk(id, {
+        include: [{ model: RoomType, as: 'room_types' }]
+      });
+
       res.json({
         success: true,
         message: '酒店更新成功',
-        data: hotel
+        data: updated
       });
     } catch (error) {
       console.error('更新酒店错误:', error);

@@ -2,95 +2,65 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-// 创建 axios 实例，指向你的后端地址
-const request = axios.create({
-  baseURL: 'http://localhost:3000/api',
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// 登录接口（根据实际后端接口修改）
-const login = async (username, password) => {
-  return request.post('/auth/login', { username, password });
-};
-
-// 获取当前用户信息接口
-const getCurrentUserProfile = async () => {
-  return request.get('/auth/profile', {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-};
+// 导入全局封装的 request 实例
+import { authApi } from '../../utils/request'; 
 
 const Login = React.memo(() => {
   const location = useLocation();
   const navigate = useNavigate();
-  const from = location.state?.from?.pathname || '/';
+  const from = location.state?.from?.pathname || '/merchant/home';
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (values) => {
-    try {
-      setLoading(true);
-      if (!values.username || !values.password) {
-        message.error('账号和密码不能为空！');
-        return;
-      }
+const handleSubmit = async (values) => {
+  try {
+    setLoading(true);
 
-      // 1. 调用后端登录接口
-      const loginRes = await login(values.username, values.password);
-      if (!loginRes.data.success) {
-        message.error(loginRes.data.message || '登录失败！');
-        return;
-      }
+    const loginRes = await authApi.login({
+      username: values.username,
+      password: values.password
+    });
 
-      const { token } = loginRes.data.data;
-      localStorage.setItem('token', token);
+    console.log('📌 登录响应：', loginRes);
 
-      // 2. 调用 /api/auth/profile 获取用户信息
-      const profileRes = await getCurrentUserProfile();
-      if (!profileRes.data.success) {
-        message.error(profileRes.data.message || '获取用户信息失败！');
-        return;
-      }
-
-      const userInfo = profileRes.data.data;
-      const userRole = userInfo.role || 'merchant';
-
-      // 3. 保存用户信息到本地
-      localStorage.setItem('role', userRole);
-      localStorage.setItem('currentUser', JSON.stringify({
-        id: userInfo.id,
-        username: userInfo.username,
-        email: userInfo.email,
-        role: userRole,
-        full_name: userInfo.full_name,
-        phone: userInfo.phone,
-        token: token,
-      }));
-
-      message.success(`${userRole === 'admin' || userRole === 'superadmin' ? '管理员' : '商户'}登录成功！`);
-
-      // 4. 根据角色跳转对应首页
-      setTimeout(() => {
-        const targetPath = from === '/login' || from === '/' 
-          ? (userRole === 'admin' || userRole === 'superadmin' ? '/manager/home' : '/merchant/home') 
-          : from;
-        window.location.replace(targetPath);
-      }, 800);
-    } catch (error) {
-      console.error('登录错误：', error);
-      const errMsg = error.response?.data?.message || '登录失败，请稍后重试！';
-      message.error(errMsg);
-    } finally {
-      setLoading(false);
+    // ✅ 正确判断：直接从 loginRes 里取 success
+    if (!loginRes.success) {
+      message.error(loginRes.message || '登录失败！');
+      return;
     }
-  };
 
+    // ✅ 正确解构：从 loginRes.data 里取 user 和 token
+    const { user, token } = loginRes.data;
+    console.log('✅ 拿到 user：', user);
+    console.log('✅ 拿到 token：', token);
+
+    if (!token) {
+      message.error('未获取到有效 token');
+      return;
+    }
+
+    localStorage.setItem('hotel_token', token);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+localStorage.setItem('role', user.role);
+
+    message.success('登录成功！');
+    console.log('用户角色：', user.role);
+    if (user.role === 'admin') {
+  navigate('/admin');
+} else if (user.role === 'merchant') {
+  console.log('匹配到 merch 角色，准备跳转');
+  navigate('/merchant/home'); // 你的角色是 merch，应该跳转到这里
+  console.log('navigate 已执行');
+}
+
+  } catch (error) {
+    console.error('❌ 错误详情：', error);
+    message.error(`登录出错：${error.message || '未知错误'}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // 页面渲染部分保持不变
   return (
     <div style={{ 
       maxWidth: '380px', 
@@ -105,7 +75,7 @@ const Login = React.memo(() => {
         marginBottom: '30px', 
         color: '#1677ff',
         fontWeight: 600 
-      }}>系统统一登录</h2>
+      }}>统一登录</h2>
 
       <Form
         name="system-login"

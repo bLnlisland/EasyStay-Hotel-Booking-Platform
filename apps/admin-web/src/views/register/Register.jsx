@@ -122,7 +122,7 @@ const MerchantRegister = () => {
     <div className="merchant-register-container">
       <Card className="register-card" hoverable bordered={false} style={{ maxWidth: '500px', margin: '80px auto', padding: '30px' }}>
         <Title level={2} className="register-title" style={{ textAlign: 'center', marginBottom: '30px', color: '#1677ff' }}>
-          用户注册
+          注册
         </Title>
         
         {registerSuccess && (
@@ -267,17 +267,21 @@ const MerchantRegister = () => {
               </Form.Item>
 
               <Form.Item
-                label="经营地址（可选）"
+                label="经营地址"
                 name="address"
-                rules={[{ max: 100 }]}
+                rules={[{ max: 100 },
+                  {required:true}
+                ]}
               >
                 <Input placeholder="请输入经营地址" maxLength={100} />
               </Form.Item>
 
               <Form.Item
-                label="负责人姓名（可选）"
+                label="负责人姓名"
                 name="fullName"
-                rules={[{ max: 20 }]}
+                rules={[{ max: 20 },
+                  {required:true}
+                ]}
               >
                 <Input placeholder="请输入负责人姓名" maxLength={20} />
               </Form.Item>

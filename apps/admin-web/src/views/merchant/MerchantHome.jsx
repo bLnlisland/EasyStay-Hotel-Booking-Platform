@@ -17,7 +17,7 @@ const MerchantHome = () => {
           // ✅ 只清除登录状态相关（核心修改）
           localStorage.removeItem('role');       // 角色标识
           localStorage.removeItem('currentUser');// 当前登录用户
-          localStorage.removeItem('token');      // 登录令牌（如有）
+          localStorage.removeItem('hotel_token'); // 登录令牌
           
           // ❌ 不清除以下业务数据
           // localStorage.removeItem('registeredUsers'); // 保留注册数据

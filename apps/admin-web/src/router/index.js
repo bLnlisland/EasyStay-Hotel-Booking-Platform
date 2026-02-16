@@ -19,7 +19,7 @@ const PrivateRoute = ({ children, requiredRole }) => {
   const location = useLocation();
   
   // 1. 核心：同时校验Token和角色（双重保障）
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('hotel_token');
   let currentRole = localStorage.getItem('role');
   const currentUserStr = localStorage.getItem('currentUser');
 
