@@ -61,11 +61,11 @@ Hotel.init({
     defaultValue: [],
   },
   status: {
-      type: DataTypes.ENUM('draft', 'pending', 'under_review', 'approved', 'rejected', 'offline'),
+      type: DataTypes.ENUM('draft', 'pending', 'under_review', 'approved', 'rejected', 'offline', 'deleted'),
       defaultValue: 'draft',
       allowNull: false,
       validate: {
-        isIn: [['draft', 'pending', 'under_review', 'approved', 'rejected', 'offline']]
+        isIn: [['draft', 'pending', 'under_review', 'approved', 'rejected', 'offline', 'deleted']]
       }
     },
   rejection_reason: {   // 拒绝原因，可选

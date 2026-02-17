@@ -20,7 +20,7 @@ const ManagerHome = () => {
           // 只清除登录状态数据（保留业务数据）
           localStorage.removeItem('role');
           localStorage.removeItem('currentUser');
-          localStorage.removeItem('token');
+          localStorage.removeItem('hotel_token');
 
           // 跳转到登录页，replace防止回退
           navigate('/', { replace: true });

@@ -9,7 +9,7 @@ const PrivateRoute = ({ children, requiredRole }) => {
   // 1. 优先从currentUser读取完整用户信息（最可靠）
   const currentUserStr = localStorage.getItem('currentUser');
   let currentRole = null;
-  let token = localStorage.getItem('token');
+  let token = localStorage.getItem('hotel_token');
 
   // 2. 解析用户信息，做多层兜底
   if (currentUserStr) {

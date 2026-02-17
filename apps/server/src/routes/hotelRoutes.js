@@ -21,7 +21,8 @@ router.get('/facilities/options', HotelController.getFacilityOptions);// 获取�
 router.get('/recommended', HotelController.getRecommendedHotels);// 获取推荐酒店列表（可能基于评分、推荐算法等）
 
 // ==================== 商户接口 ====================
-router.get('/my', auth, roleCheck('merchant', 'admin'), HotelController.getMyHotels);/// 获取当前商户的酒店列表
+router.get('/my', auth, roleCheck('merchant', 'admin'), HotelController.getMyHotels);// 获取当前商户的酒店列表
+router.get('/:id', auth, roleCheck('merchant', 'admin'), HotelController.getMyHotelById);// 获取当前商户的单个酒店详情（含房型，用于编辑）
 router.post('/', auth, roleCheck('merchant', 'admin'), HotelController.createHotel);// 创建新酒店（商户提交酒店信息）
 router.put('/:id', auth, roleCheck('merchant', 'admin'), HotelController.updateHotel);// 更新酒店信息
 router.post('/:id/submit', auth, roleCheck('merchant', 'admin'), HotelController.submitForReview);// 提交酒店审核

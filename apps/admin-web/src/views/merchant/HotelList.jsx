@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Typography, Button, Tag, Space, Modal } from 'antd'; // 替换message为Modal
+import { Table, Card, Button, Space, Modal } from 'antd';
+import { PlusOutlined, HomeOutlined, EditOutlined, SendOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-
-const { Title } = Typography;
+import { hotelApi } from '../../utils/request';
+import './HotelList.css';
 
 const HotelList = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false); // 加载状态
 
   // 城市中英文映射
   const cityMap = {
@@ -17,7 +19,7 @@ const HotelList = () => {
     shenzhen: '深圳'
   };
 
-  // 设施值转中文（含旧数据兼容：wifi/parking 等；新数据直接存中文）
+  // 设施值转中文（兼容新旧数据）
   const facilityMap = {
     wifi: '免费WiFi',
     parking: '停车场',
@@ -44,89 +46,119 @@ const HotelList = () => {
     '旅游票务': '旅游票务'
   };
 
-  // 🔥 新增：审核状态映射（和管理员端完全对齐）
+  // 审核状态映射（用于样式类名）
   const auditStatusMap = {
-    pending: { text: '审核中', color: 'orange' },
-    pass: { text: '已通过', color: 'green' },
-    reject: { text: '不通过', color: 'red' },
-    // 兼容老数据
-    '审核中': { text: '审核中', color: 'orange' },
-    '已通过': { text: '已通过', color: 'green' },
-    '不通过': { text: '不通过', color: 'red' }
+    draft: { text: '草稿', className: 'status-draft' },
+    pending: { text: '审核中', className: 'status-pending' },
+    under_review: { text: '审核中', className: 'status-under_review' },
+    approved: { text: '已通过', className: 'status-approved' },
+    rejected: { text: '已拒绝', className: 'status-rejected' },
+    offline: { text: '已下线', className: 'status-offline' },
+    pass: { text: '已通过', className: 'status-pass' },
+    reject: { text: '不通过', className: 'status-reject' },
+    '审核中': { text: '审核中', className: 'status-pending' },
+    '已通过': { text: '已通过', className: 'status-approved' },
+    '不通过': { text: '不通过', className: 'status-reject' }
   };
 
-  // 🔥 新增：发布状态映射
   const publishStatusMap = {
-    online: { text: '已上线', color: 'blue' },
-    offline: { text: '已下线', color: 'default' }
+    online: { text: '已上线', className: 'status-online' },
+    offline: { text: '已下线', className: 'status-offline' }
   };
 
-  // 🔥 核心修改：读取正确的本地存储数据（和管理员端共用）
-  const loadHotels = () => {
+  // 🔥 核心修改：从接口获取数据
+  const loadHotels = async () => {
+    setLoading(true);
     try {
-      // 优先读取管理员同步的 hotelList，兼容老数据 merchantHotels
-      let hotels = JSON.parse(localStorage.getItem('hotelList')) || [];
-      if (hotels.length === 0) {
-        hotels = JSON.parse(localStorage.getItem('merchantHotels')) || [];
-        // 迁移老数据到新的存储字段
-        localStorage.setItem('hotelList', JSON.stringify(hotels));
+      // 1. 使用封装好的接口方法（自动包含baseURL和token）
+      const response = await hotelApi.getMyHotels();
+
+      if (response.success) {
+        // 2. 处理接口返回的数据，兼容本地字段名
+        const apiData = response.data || [];
+        const formattedData = apiData.map(item => ({
+          id: item.id,
+          hotelName: item.name_zh, // 接口字段name_zh映射到hotelName
+          city: item.city,
+          star_rating: item.star_rating,
+          status: item.status, // 接口返回的审核状态
+          // 兼容本地其他字段（如果接口未返回，可留空或从本地补充）
+          contactPhone: item.contact_phone || '',
+          facilities: item.facilities || [],
+          auditStatus: item.status || 'pending',
+          publishStatus: item.publish_status || 'offline',
+          createTime: item.created_at || new Date().toLocaleString('zh-CN'),
+          rejectReason: item.reject_reason || ''
+        }));
+
+        // 3. 去重：按 id 去重，保留最新的记录（如果接口返回了重复数据）
+        const uniqueMap = new Map();
+        formattedData.forEach(item => {
+          const existing = uniqueMap.get(item.id);
+          if (!existing || (item.createTime && existing.createTime && item.createTime > existing.createTime)) {
+            uniqueMap.set(item.id, item);
+          }
+        });
+        const uniqueData = Array.from(uniqueMap.values());
+
+        setData(uniqueData);
+        // 同步更新本地存储（去重后的数据）
+        localStorage.setItem('hotelList', JSON.stringify(uniqueData));
+        localStorage.setItem('merchantHotels', JSON.stringify(uniqueData));
+      } else {
+        Modal.error({
+          title: '获取失败',
+          content: response.message || '获取酒店列表失败',
+          okText: '确定'
+        });
       }
-      
-      // 为老数据补充默认状态
-      const hotelsWithStatus = hotels.map(hotel => ({
-        ...hotel,
-        // 兼容老数据的 status 字段
-        auditStatus: hotel.auditStatus || hotel.status || 'pending',
-        publishStatus: hotel.publishStatus || 'offline',
-        rejectReason: hotel.rejectReason || ''
-      }));
-      
-      setData(hotelsWithStatus);
-      console.log('读取到的酒店数据（含同步状态）：', hotelsWithStatus);
     } catch (error) {
-      // 替换message为Modal
+      console.error('获取酒店列表失败：', error);
       Modal.error({
-        title: '读取失败',
-        content: '读取酒店数据失败，请刷新页面重试',
+        title: '获取失败',
+        content: '网络错误或服务器异常，请稍后重试',
         okText: '确定'
       });
-      setData([]);
+      // 降级：如果接口失败，尝试从本地存储读取旧数据
+      const localData = JSON.parse(localStorage.getItem('hotelList')) || [];
+      setData(localData);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 路由变化 + 监听本地存储变化，实时同步管理员操作
-  useEffect(() => {
-    loadHotels();
-    // 监听本地存储变化，管理员操作后实时更新
-    window.addEventListener('storage', loadHotels);
-    return () => window.removeEventListener('storage', loadHotels);
-  }, [location.pathname]);
-
-  // 删除酒店功能（同步更新共用的 hotelList）
-  const handleDelete = (hotelId) => {
-    // 二次确认删除
+  // 提交审核功能
+  const handleSubmitForReview = async (hotelId) => {
     Modal.confirm({
-      title: '确认删除',
-      content: '确定要删除该酒店信息吗？删除后无法恢复',
-      okText: '确认删除',
+      title: '确认提交审核',
+      content: '提交后，管理员将审核您的酒店信息。确认提交吗？',
+      okText: '确认提交',
       cancelText: '取消',
-      onOk: () => {
+      onOk: async () => {
         try {
-          const hotels = JSON.parse(localStorage.getItem('hotelList')) || [];
-          const newHotels = hotels.filter(item => item.id !== hotelId);
-          localStorage.setItem('hotelList', JSON.stringify(newHotels));
-          // 兼容老数据
-          localStorage.setItem('merchantHotels', JSON.stringify(newHotels));
-          setData(newHotels);
-          Modal.success({
-            title: '删除成功',
-            content: '酒店数据已删除',
-            okText: '确定'
-          });
+          const response = await hotelApi.submitForReview(hotelId);
+          if (response.success) {
+            Modal.success({
+              title: '提交成功',
+              content: response.message || '酒店已提交审核，请等待管理员审核',
+              okText: '确定',
+              onOk: () => {
+                // 重新加载列表
+                loadHotels();
+              }
+            });
+          } else {
+            Modal.error({
+              title: '提交失败',
+              content: response.message || '提交审核失败，请重试',
+              okText: '确定'
+            });
+          }
         } catch (error) {
+          console.error('提交审核失败：', error);
           Modal.error({
-            title: '删除失败',
-            content: '删除酒店数据失败，请重试',
+            title: '提交失败',
+            content: error.response?.data?.message || '网络错误，请稍后重试',
             okText: '确定'
           });
         }
@@ -134,53 +166,70 @@ const HotelList = () => {
     });
   };
 
-  // 表格列配置（增加同步状态显示）
+  // 删除酒店：调用后端接口，成功后重新加载列表（避免重复草稿）
+  const handleDelete = (hotelId) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除该酒店信息吗？删除后无法恢复',
+      okText: '确认删除',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await hotelApi.deleteHotel(hotelId);
+          Modal.success({
+            title: '删除成功',
+            content: '酒店已删除',
+            okText: '确定',
+            onOk: () => loadHotels()
+          });
+          loadHotels();
+        } catch (error) {
+          Modal.error({
+            title: '删除失败',
+            content: error.response?.data?.message || '删除失败，请重试',
+            okText: '确定'
+          });
+        }
+      }
+    });
+  };
+
+  // 路由变化时重新加载数据
+  useEffect(() => {
+    loadHotels();
+  }, [location.pathname]);
+
   const columns = [
     {
       title: '酒店名称',
       dataIndex: 'hotelName',
       key: 'hotelName',
-      ellipsis: true
+      ellipsis: true,
+      render: (name) => <span className="hotel-name-cell">{name || '—'}</span>
     },
     {
       title: '所在城市',
       dataIndex: 'city',
       key: 'city',
-      render: (city) => cityMap[city] || city
+      render: (city) => cityMap[city] || city || '—'
     },
     {
-      title: '联系电话',
-      dataIndex: 'contactPhone',
-      key: 'contactPhone'
-    },
-    {
-      title: '核心设施',
-      dataIndex: 'facilities',
-      key: 'facilities',
-      render: (facilities) => {
-        const facList = facilities || [];
-        return (
-          <Space>
-            {facList.slice(0, 3).map(fac => (
-              <Tag key={fac} size="small">{facilityMap[fac] || fac}</Tag>
-            ))}
-            {facList.length > 3 && <Tag size="small">+{facList.length - 3}</Tag>}
-          </Space>
-        );
-      }
+      title: '酒店星级',
+      dataIndex: 'star_rating',
+      key: 'star_rating',
+      render: (rating) => <span className="star-cell">{rating != null ? `${rating} 星` : '—'}</span>
     },
     {
       title: '审核状态',
-      key: 'auditStatus', // 🔥 修改为和管理员端一致的字段
+      key: 'auditStatus',
       render: (_, record) => {
         const status = record.auditStatus || record.status || 'pending';
-        const statusConfig = auditStatusMap[status] || auditStatusMap['pending'];
+        const config = auditStatusMap[status] || auditStatusMap['pending'];
         return (
           <div>
-            <Tag color={statusConfig.color}>{statusConfig.text}</Tag>
-            {/* 显示审核不通过原因 */}
-            {status === 'reject' && record.rejectReason && (
-              <div style={{ fontSize: 12, color: '#f50', marginTop: 4 }}>
+            <span className={`status-tag ${config.className}`}>{config.text}</span>
+            {(status === 'reject' || status === 'rejected') && record.rejectReason && (
+              <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>
                 原因：{record.rejectReason}
               </div>
             )}
@@ -189,63 +238,111 @@ const HotelList = () => {
       }
     },
     {
-      title: '发布状态', // 🔥 新增：显示管理员的发布/下线状态
+      title: '发布状态',
       key: 'publishStatus',
       render: (_, record) => {
         const status = record.publishStatus || 'offline';
-        const statusConfig = publishStatusMap[status] || publishStatusMap['offline'];
-        return <Tag color={statusConfig.color}>{statusConfig.text}</Tag>;
+        const config = publishStatusMap[status] || publishStatusMap['offline'];
+        return <span className={`status-tag ${config.className}`}>{config.text}</span>;
       }
     },
     {
       title: '录入时间',
       dataIndex: 'createTime',
-      key: 'createTime'
+      key: 'createTime',
+      width: 172,
+      render: (t) => t || '—'
     },
     {
       title: '操作',
       key: 'action',
-      render: (_, record) => (
-        <Space>
-          <Button 
-            type="link" 
-            onClick={() => navigate(`/merchant/hotel-edit/${record.id}`)}
-          >
-            编辑
-          </Button>
-          <Button 
-            type="link" 
-            danger
-            onClick={() => handleDelete(record.id)}
-          >
-            删除
-          </Button>
-        </Space>
-      )
+      width: 200,
+      render: (_, record) => {
+        const status = record.auditStatus || record.status || 'draft';
+        const canSubmit = status === 'draft';
+        // 草稿、审核中、已拒绝 均可重新编辑
+        const canEdit = status === 'draft' || status === 'pending' || status === 'under_review' || status === 'rejected';
+        return (
+          <div className="action-btns">
+            {canEdit && (
+              <Button
+                type="text"
+                size="small"
+                className="action-btn action-btn-edit"
+                icon={<EditOutlined />}
+                onClick={() => navigate(`/merchant/hotel-edit/${record.id}`)}
+              >
+                编辑
+              </Button>
+            )}
+            {canSubmit && (
+              <Button
+                type="text"
+                size="small"
+                className="action-btn action-btn-submit"
+                icon={<SendOutlined />}
+                onClick={() => handleSubmitForReview(record.id)}
+              >
+                提交审核
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                type="text"
+                size="small"
+                className="action-btn action-btn-delete"
+                icon={<DeleteOutlined />}
+                onClick={() => handleDelete(record.id)}
+              >
+                删除
+              </Button>
+            )}
+          </div>
+        );
+      }
     }
   ];
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <Card title={<Title level={3}>我的酒店列表</Title>} bordered={false}>
-        <Space style={{ marginBottom: 20 }}>
-          <Button 
-            type="primary" 
+    <div className="hotel-list-page">
+      <div className="page-header">
+        <div className="page-title-wrap">
+          <div className="page-icon">🏨</div>
+          <div>
+            <h1 className="page-title">我的酒店列表</h1>
+            <p className="page-subtitle">管理您名下的酒店信息，提交审核后将在平台展示</p>
+          </div>
+        </div>
+        <div className="header-actions">
+          <Button
+            type="primary"
+            className="btn-add"
+            icon={<PlusOutlined />}
             onClick={() => navigate('/merchant/hotel-add')}
           >
             新增酒店
           </Button>
-          <Button onClick={() => navigate('/merchant/home')}>
+          <Button
+            className="btn-back"
+            icon={<HomeOutlined />}
+            onClick={() => navigate('/merchant/home')}
+          >
             返回首页
           </Button>
-        </Space>
+        </div>
+      </div>
 
+      <Card className="list-card" bordered={false}>
         <Table
           columns={columns}
           dataSource={data}
           rowKey="id"
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-          bordered
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `共 ${total} 条`
+          }}
+          loading={loading}
           locale={{ emptyText: '暂无酒店数据，点击「新增酒店」录入' }}
         />
       </Card>
