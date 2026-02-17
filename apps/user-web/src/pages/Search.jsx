@@ -130,22 +130,44 @@ export default function Search() {
   }, []);
 
 
-  useEffect(() => {
+useEffect(() => {
+  const baseURL = http?.defaults?.baseURL || "http://localhost:3000/api";
+  const origin = String(baseURL).replace(/\/api\/?$/, "");
+
+  const toPublicUrl = (u) => {
+    if (!u) return "";
+    if (/^https?:\/\//i.test(u)) return u;
+    return `${origin}${u.startsWith("/") ? "" : "/"}${u}`;
+  };
+
   http
     .get("/hotels/recommended")
     .then((res) => {
-      if (!res?.success) return setBanners([]);
-      const list = res?.data?.hotels || [];
-      // 适配字段：有的返回 image，有的返回 images 数组
+      const payload = res?.data ?? res;
+
+      // ✅ 你的 payload 就是 {hotels: [...]}
+      const list = payload?.hotels || payload?.data?.hotels || [];
+      console.log("[recommended] list:", list);
+
       const mapped = list.map((h) => ({
         id: h.id,
         title: h.name_zh || h.name_en || "推荐酒店",
-        image: h.image || h.images?.[0]?.url || "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0",
+        image:
+          toPublicUrl(h.image || h.images?.[0]?.url) ||
+          "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0",
       }));
+
+      console.log("[recommended] mapped:", mapped);
+
       setBanners(mapped);
     })
-    .catch(() => setBanners([]));
+    .catch((err) => {
+      console.error("[recommended] request error:", err);
+      setBanners([]);
+    });
 }, []);
+
+
 
   const qs = useMemo(() => {
     const p = new URLSearchParams();

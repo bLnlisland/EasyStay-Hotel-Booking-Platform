@@ -1,7 +1,10 @@
 // src/app.js - 主应用文件
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
+console.log('静态目录：', path.join(__dirname, '..', 'uploads'));
+
 
 // 导入路由
 const authRoutes = require('./routes/authRoutes');
@@ -22,6 +25,11 @@ const app = express();
 app.use(cors()); // 允许跨域请求
 app.use(express.json()); // 解析JSON请求体
 app.use(express.urlencoded({ extended: true })); // 解析URL编码的请求体
+
+const uploadAbs = path.resolve('./uploads');
+console.log('📁 serving /uploads from:', uploadAbs);
+app.use('/uploads', express.static(uploadAbs));
+
 
 // 请求日志中间件
 app.use((req, res, next) => {

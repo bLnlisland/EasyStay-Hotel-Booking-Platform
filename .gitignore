@@ -30,3 +30,5 @@ dist/
 .vscode/
 "apps/admin-web/build/" 
 "apps/admin-web/build/" 
+
+apps/server/uploads/

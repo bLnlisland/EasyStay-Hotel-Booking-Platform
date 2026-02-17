@@ -64,6 +64,27 @@ const auth = async (req, res, next) => {
   }
 };
 
+// 可选认证：有 token 就解析用户并挂到 req.user；没 token 就当未登录放行
+const optionalAuth = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) return next();
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id);
+
+    // token 有但用户不存在 / 被禁用：直接当未登录处理（不拦截）
+    if (!user || !user.is_active) return next();
+
+    req.user = user;
+    req.token = token;
+    next();
+  } catch (error) {
+    // token 无效/过期：当未登录处理（不拦截）
+    next();
+  }
+};
+
 // 角色检查中间件
 const roleCheck = (...roles) => {
   return (req, res, next) => {
@@ -123,6 +144,7 @@ const validateRequest = (schema) => {
 
 module.exports = {
   auth,
+  optionalAuth, 
   roleCheck,
   errorHandler,
   validateRequest
