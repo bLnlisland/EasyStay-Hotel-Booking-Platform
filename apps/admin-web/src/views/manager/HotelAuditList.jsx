@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tag, Space, Card, Typography, Modal } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { hotelApi } from '../../utils/request';
 
 const { Title } = Typography;
 
@@ -25,46 +26,55 @@ const STATUS_LABEL = {
   [PUBLISH_STATUS.OFFLINE]: <Tag color="default">已下线</Tag>
 };
 
+// 后端 status 映射为列表审核状态
+const mapStatusToAudit = (status) => {
+  if (status === 'approved') return AUDIT_STATUS.PASS;
+  if (status === 'rejected') return AUDIT_STATUS.REJECT;
+  return AUDIT_STATUS.PENDING;
+};
+const mapStatusToPublish = (status) => (status === 'approved' ? PUBLISH_STATUS.ONLINE : PUBLISH_STATUS.OFFLINE);
+
 const HotelAuditList = () => {
   const navigate = useNavigate();
   const [hotelList, setHotelList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, total_pages: 0 });
 
-  // 加载商户数据（高容错：兼容多存储字段 + 数据校验）
-  useEffect(() => {
-    const loadMerchantHotelData = () => {
-      try {
-        // 1. 多来源读取 + 容错
-        let hotelData = [];
-        const hotelListData = localStorage.getItem('hotelList');
-        const merchantHotelsData = localStorage.getItem('merchantHotels');
-
-        if (hotelListData) hotelData = JSON.parse(hotelListData) || [];
-        if (hotelData.length === 0 && merchantHotelsData) hotelData = JSON.parse(merchantHotelsData) || [];
-
-        // 2. 数据清洗：过滤无效数据 + 补充默认字段
-        const validHotels = hotelData
-          .filter(hotel => hotel && hotel.id && hotel.hotelName) // 过滤空数据/无ID/无名称的无效数据
-          .map(hotel => ({
-            id: hotel.id,
-            hotelName: hotel.hotelName || '未知酒店',
-            merchantName: hotel.merchantName || hotel.merchant || '未知商户',
-            contactPhone: hotel.contactPhone || hotel.phone || '未填写',
-            createTime: hotel.createTime || hotel.applyTime || '未填写',
-            auditStatus: hotel.auditStatus || AUDIT_STATUS.PENDING,
-            publishStatus: hotel.publishStatus || PUBLISH_STATUS.OFFLINE,
-            rejectReason: hotel.rejectReason || ''
-          }));
-
-        setHotelList(validHotels);
-      } catch (error) {
-        console.error('加载酒店数据失败：', error);
+  const loadFromApi = (page = 1, limit = 20, status) => {
+    setLoading(true);
+    hotelApi.getAdminAllHotels({ page, limit, status })
+      .then((res) => {
+        if (!res.success || !res.data) {
+          setHotelList([]);
+          return;
+        }
+        const { hotels = [], pagination: p } = res.data;
+        setPagination({
+          page: p.page,
+          limit: p.limit,
+          total: p.total,
+          total_pages: p.total_pages
+        });
+        setHotelList(hotels.map(h => ({
+          id: h.id,
+          hotelName: h.name_zh || '未知酒店',
+          merchantName: (h.merchant && h.merchant.username) || '未知商户',
+          contactPhone: h.contact_phone || '未填写',
+          createTime: h.created_at ? new Date(h.created_at).toLocaleString() : '未填写',
+          auditStatus: mapStatusToAudit(h.status),
+          publishStatus: mapStatusToPublish(h.status),
+          rejectReason: ''
+        })));
+      })
+      .catch((err) => {
+        console.error('加载酒店列表失败：', err);
         setHotelList([]);
-      }
-    };
+      })
+      .finally(() => setLoading(false));
+  };
 
-    loadMerchantHotelData();
-    window.addEventListener('storage', loadMerchantHotelData);
-    return () => window.removeEventListener('storage', loadMerchantHotelData);
+  useEffect(() => {
+    loadFromApi(1, 20);
   }, []);
 
   // 表格列配置（仅展示核心信息，审核操作跳转到详情页）
@@ -92,13 +102,12 @@ const HotelAuditList = () => {
       width: 150,
       render: (_, record) => (
         <Space size="middle">
-          {/* 跳转到审核详情页 */}
           <Button 
             type="primary" 
             size="small"
             onClick={() => navigate(`/manager/hotel-audit/${String(record.id)}`)}
           >
-            审核详情
+            审核
           </Button>
           {/* 上下线操作：仅审核通过的酒店可由管理员选择上线/下线 */}
           {record.auditStatus === AUDIT_STATUS.PASS && (
@@ -120,32 +129,22 @@ const HotelAuditList = () => {
   const handleQuickPublish = (record) => {
     const isOnline = record.publishStatus === PUBLISH_STATUS.ONLINE;
     const action = isOnline ? '下线' : '上线';
+    const newStatus = isOnline ? 'offline' : 'approved';
     Modal.confirm({
       title: `确认${action}`,
       content: `确定要将酒店【${record.hotelName}】${action}吗？`,
       okText: '确认',
       cancelText: '取消',
       onOk: () => {
-        try {
-          const updatedList = hotelList.map(hotel => {
-            if (hotel.id === record.id) {
-              return {
-                ...hotel,
-                publishStatus: hotel.publishStatus === PUBLISH_STATUS.ONLINE 
-                  ? PUBLISH_STATUS.OFFLINE 
-                  : PUBLISH_STATUS.ONLINE
-              };
-            }
-            return hotel;
+        hotelApi.updateAdminHotelStatus(record.id, { status: newStatus })
+          .then(() => {
+            Modal.success({ content: `${action}成功` });
+            loadFromApi(pagination.page, pagination.limit);
+          })
+          .catch((err) => {
+            console.error('操作失败：', err);
+            Modal.error({ content: err?.message || `${action}失败，请重试` });
           });
-          localStorage.setItem('hotelList', JSON.stringify(updatedList));
-          localStorage.setItem('merchantHotels', JSON.stringify(updatedList));
-          setHotelList(updatedList);
-          Modal.success({ content: `${action}成功` });
-        } catch (error) {
-          console.error('操作失败：', error);
-          Modal.error({ content: `${action}失败，请重试` });
-        }
       }
     });
   };
@@ -170,7 +169,15 @@ const HotelAuditList = () => {
           columns={columns}
           dataSource={hotelList}
           rowKey="id"
-          pagination={{ pageSize: 10, showSizeChanger: true }}
+          loading={loading}
+          pagination={{
+            current: pagination.page,
+            pageSize: pagination.limit,
+            total: pagination.total,
+            showSizeChanger: true,
+            showTotal: (t) => `共 ${t} 条`,
+            onChange: (p, size) => loadFromApi(p, size || pagination.limit)
+          }}
           bordered
           scroll={{ x: 'max-content' }}
         />

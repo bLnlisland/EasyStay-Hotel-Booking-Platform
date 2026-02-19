@@ -235,34 +235,25 @@ class DatabaseManager {
       await this.connection.query("DELETE FROM users WHERE role = 'superadmin'");
       console.log('🗑️ 已清理 superadmin 用户（如有）');
 
+      // 删除旧种子里的示例酒店（上海外滩大酒店、北京王府井酒店），避免列表里一直存在
+      try {
+        await this.connection.query("DELETE FROM hotel_images WHERE hotel_id IN (SELECT id FROM hotels WHERE name_zh IN ('上海外滩大酒店', '北京王府井酒店'))");
+        await this.connection.query("DELETE FROM room_types WHERE hotel_id IN (SELECT id FROM hotels WHERE name_zh IN ('上海外滩大酒店', '北京王府井酒店'))");
+        await this.connection.query("DELETE FROM hotels WHERE name_zh IN ('上海外滩大酒店', '北京王府井酒店')");
+        console.log('🗑️ 已清理旧种子示例酒店（如有）');
+      } catch (e) {
+        // 若表名或字段不同可忽略
+        if (!e.message || !e.message.includes('Unknown column')) console.log('⚠️ 清理示例酒店时:', e.message);
+      }
+
       const seeds = [
         // 管理员/商户/普通用户（管理员也可通过 /register 页自助注册）
+        // 仅保留测试账号（admin/merchant1/user1），不再插入示例酒店
         `INSERT INTO users (username, email, password, role, approval_status, full_name, phone, avatar, is_active) VALUES
          ('admin', 'admin@hotel.com', '${adminPwd}', 'admin', 'approved', '系统管理员', '13800138001', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true),
          ('merchant1', 'merchant@hotel.com', '${merchantPwd}', 'merchant', 'approved', '酒店商户', '13800138002', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true),
          ('user1', 'user@example.com', '${userPwd}', 'user', 'approved', '普通用户', '13800138003', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/icons/person-circle.svg', true)
-         ON DUPLICATE KEY UPDATE password = VALUES(password), full_name = VALUES(full_name), phone = VALUES(phone), updated_at = CURRENT_TIMESTAMP;`,
-
-        `INSERT INTO hotels (merchant_id, name_zh, name_en, address, city, province, star_rating, opening_year, facilities, status, contact_phone, contact_email) VALUES
-         (3, '上海外滩大酒店', 'Shanghai Bund Hotel', '上海市黄浦区南京东路123号', '上海', '上海市', 5, 2018, '["wifi", "parking", "gym", "pool", "restaurant", "spa"]', 'approved', '021-12345678', 'reservation@bundhotel.com'),
-         (3, '北京王府井酒店', 'Beijing Wangfujing Hotel', '北京市东城区王府井大街456号', '北京', '北京市', 4, 2019, '["wifi", "breakfast", "concierge", "laundry"]', 'approved', '010-87654321', 'info@wangfujinghotel.com')
-         ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`,
-
-        `INSERT INTO room_types (hotel_id, name, description, area, max_guests, bed_type, facilities, base_price, discount_rate, available_count) VALUES
-         (1, '豪华大床房', '45平米江景大床房，含双早，免费wifi', 45.00, 2, '大床', '["wifi", "tv", "minibar", "bathrobe"]', 899.00, 0.90, 5),
-         (1, '行政套房', '68平米行政楼层套房，江景，行政酒廊待遇', 68.00, 2, '大床', '["wifi", "tv", "minibar", "jacuzzi", "executive_lounge"]', 1599.00, 0.85, 3),
-         (1, '标准双床房', '32平米标准双床房，城市景观', 32.00, 2, '双床', '["wifi", "tv", "hairdryer"]', 599.00, 1.00, 10),
-         (2, '商务大床房', '38平米商务大床房，办公桌，免费wifi', 38.00, 2, '大床', '["wifi", "tv", "desk", "coffee_maker"]', 699.00, 0.95, 8),
-         (2, '家庭套房', '55平米家庭套房，可住4人，儿童友好', 55.00, 4, '一大一小', '["wifi", "tv", "kitchenette", "crib"]', 1299.00, 0.88, 4)
-         ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`,
-
-        `INSERT INTO hotel_images (hotel_id, url, alt_text, is_main, \`order\`) VALUES
-         (1, 'https://example.com/hotel1-1.jpg', '上海外滩大酒店外观', true, 1),
-         (1, 'https://example.com/hotel1-2.jpg', '豪华大床房', false, 2),
-         (1, 'https://example.com/hotel1-3.jpg', '酒店大堂', false, 3),
-         (2, 'https://example.com/hotel2-1.jpg', '北京王府井酒店外观', true, 1),
-         (2, 'https://example.com/hotel2-2.jpg', '商务大床房', false, 2)
-         ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;`
+         ON DUPLICATE KEY UPDATE password = VALUES(password), full_name = VALUES(full_name), phone = VALUES(phone), updated_at = CURRENT_TIMESTAMP;`
       ];
 
       console.log('🌱 开始插入测试数据...');

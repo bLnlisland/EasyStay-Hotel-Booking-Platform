@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Typography, Descriptions, Form, Select, Input, Button, Modal, Space, Tag, Divider } from 'antd';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { hotelApi } from '../../utils/request';
 
 const { Title, Text } = Typography;
 
@@ -68,186 +69,109 @@ const HotelAuditDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // 🔥 核心：加载酒店详情 + 监听本地存储变化，实时同步
-  const loadHotelDetail = useCallback(() => {
-    try {
-      setLoading(true);
-      setError('');
+  // 后端 status 映射为审核/发布状态
+  const statusToAudit = (s) => (s === 'approved' ? AUDIT_STATUS.PASS : s === 'rejected' ? AUDIT_STATUS.REJECT : AUDIT_STATUS.PENDING);
+  const statusToPublish = (s) => (s === 'offline' ? PUBLISH_STATUS.OFFLINE : s === 'approved' ? PUBLISH_STATUS.ONLINE : PUBLISH_STATUS.OFFLINE);
 
-      // 1. 多来源读取 + 容错（同步本地存储）
-      let hotelData = [];
-      const hotelListData = localStorage.getItem('hotelList');
-      const merchantHotelsData = localStorage.getItem('merchantHotels');
-
-      if (hotelListData) hotelData = JSON.parse(hotelListData) || [];
-      if (hotelData.length === 0 && merchantHotelsData) hotelData = JSON.parse(merchantHotelsData) || [];
-
-      // 在查找酒店时，将字符串ID转为数字
-        const targetHotel = hotelData.find(hotel => hotel && String(hotel.id) === id);
-      
-      if (!targetHotel) {
-        setError('未找到该酒店的信息，可能已被删除或ID错误');
+  const loadHotelDetail = () => {
+    setLoading(true);
+    setError('');
+    hotelApi.getAdminHotelDetail(id)
+      .then((res) => {
+        if (!res.success || !res.data) {
+          setError('未找到该酒店的信息');
+          setHotelInfo(null);
+          return;
+        }
+        const raw = res.data;
+        const facilities = Array.isArray(raw.facilities) ? raw.facilities : (typeof raw.facilities === 'string' ? (() => { try { return JSON.parse(raw.facilities); } catch { return []; } })() : []);
+        const rooms = raw.room_types || [];
+        const minPrice = rooms.length ? Math.min(...rooms.map(r => Number(r.base_price) || 0)) : null;
+        const maxPrice = rooms.length ? Math.max(...rooms.map(r => Number(r.base_price) || 0)) : null;
+        const priceRange = minPrice != null && maxPrice != null ? `${minPrice} - ${maxPrice} 元` : '未填写';
+        const formattedHotel = {
+          id: raw.id,
+          hotelName: raw.name_zh || '未知酒店',
+          merchantName: (raw.merchant && raw.merchant.username) || '未知商户',
+          city: (raw.city && cityMap[raw.city]) ? cityMap[raw.city] : (raw.city || '未填写'),
+          address: raw.address || '未填写',
+          contactPhone: raw.contact_phone || '未填写',
+          roomCount: rooms.length ? String(rooms.length) : '未填写',
+          priceRange,
+          facilities,
+          createTime: (raw.created_at || raw.createdAt) ? new Date(raw.created_at || raw.createdAt).toLocaleString('zh-CN') : '未填写',
+          auditStatus: statusToAudit(raw.status),
+          publishStatus: statusToPublish(raw.status),
+          rejectReason: raw.rejection_reason || raw.review_notes || ''
+        };
+        setHotelInfo(formattedHotel);
+        form.setFieldsValue({
+          auditStatus: formattedHotel.auditStatus,
+          rejectReason: formattedHotel.rejectReason
+        });
+      })
+      .catch((err) => {
+        console.error('加载酒店详情失败：', err);
+        setError(err?.message || '加载酒店信息失败，请返回列表页重试');
         setHotelInfo(null);
-        return;
-      }
+      })
+      .finally(() => setLoading(false));
+  };
 
-      // 3. 数据格式化 + 补充默认值（高容错）
-      const formattedHotel = {
-        id: targetHotel.id,
-        hotelName: targetHotel.hotelName || '未知酒店',
-        merchantName: targetHotel.merchantName || targetHotel.merchant || '未知商户',
-        city: cityMap[targetHotel.city] || targetHotel.city || '未填写',
-        address: targetHotel.address || '未填写',
-        contactPhone: targetHotel.contactPhone || targetHotel.phone || '未填写',
-        roomCount: targetHotel.roomCount || '未填写',
-        priceRange: targetHotel.priceRange || '未填写',
-        facilities: targetHotel.facilities || [],
-        createTime: targetHotel.createTime || targetHotel.applyTime || '未填写',
-        auditStatus: targetHotel.auditStatus || AUDIT_STATUS.PENDING,
-        publishStatus: targetHotel.publishStatus || PUBLISH_STATUS.OFFLINE,
-        rejectReason: targetHotel.rejectReason || ''
-      };
-
-      setHotelInfo(formattedHotel);
-      // 表单回显当前状态（同步本地最新状态）
-      form.setFieldsValue({
-        auditStatus: formattedHotel.auditStatus,
-        rejectReason: formattedHotel.rejectReason
-      });
-
-    } catch (err) {
-      console.error('加载酒店详情失败：', err);
-      setError('加载酒店信息失败，请返回列表页重试');
-      setHotelInfo(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, form]);
-
-  // 初始加载 + 监听本地存储变化，实时同步
   useEffect(() => {
     loadHotelDetail();
-    // 🔥 关键：监听localStorage变化，实时更新详情页
-    window.addEventListener('storage', loadHotelDetail);
-    // 监听路由参数变化（比如同一页面切换酒店ID）
-    window.addEventListener('popstate', loadHotelDetail);
-    
-    // 清理监听
-    return () => {
-      window.removeEventListener('storage', loadHotelDetail);
-      window.removeEventListener('popstate', loadHotelDetail);
-    };
-  }, [id, form, loadHotelDetail]);
+  }, [id]);
 
-  // 🔥 核心：提交审核结果，同步到本地存储（双向同步）
+  // 提交审核结果到后端
   const handleAuditSubmit = () => {
     if (!hotelInfo) {
       Modal.warning({ title: '操作失败', content: '未获取到酒店信息，无法审核', okText: '确定' });
       return;
     }
-
-    form.validateFields().then(values => {
-      try {
-        // 1. 读取全部酒店数据（多来源）
-        let allHotels = [];
-        const hotelListData = localStorage.getItem('hotelList');
-        const merchantHotelsData = localStorage.getItem('merchantHotels');
-
-        if (hotelListData) allHotels = JSON.parse(hotelListData) || [];
-        if (allHotels.length === 0 && merchantHotelsData) allHotels = JSON.parse(merchantHotelsData) || [];
-
-        // 2. 更新当前酒店的审核状态（同步修改）
-        const updatedHotels = allHotels.map(hotel => {
-          if (hotel && String(hotel.id) === String(id)) {
-            return {
-              ...hotel,
-              auditStatus: values.auditStatus,
-              rejectReason: values.auditStatus === AUDIT_STATUS.REJECT ? values.rejectReason : '',
-              // 审核不通过时强制下线，只有审核通过才能由管理员选择上线
-              publishStatus: values.auditStatus === AUDIT_STATUS.REJECT ? PUBLISH_STATUS.OFFLINE : (hotel.publishStatus || PUBLISH_STATUS.OFFLINE),
-              auditTime: new Date().toLocaleString()
-            };
-          }
-          return hotel;
+    form.validateFields().then((values) => {
+      const status = values.auditStatus === AUDIT_STATUS.PASS ? 'approved' : 'rejected';
+      const review_notes = values.auditStatus === AUDIT_STATUS.REJECT ? (values.rejectReason || '') : undefined;
+      hotelApi.updateAdminHotelStatus(id, { status, review_notes })
+        .then(() => {
+          Modal.success({
+            title: '审核成功',
+            content: `酒店【${hotelInfo.hotelName}】已${values.auditStatus === AUDIT_STATUS.PASS ? '审核通过' : '审核不通过'}`,
+            okText: '确定',
+            onOk: () => navigate('/manager/hotel-audit')
+          });
+        })
+        .catch((err) => {
+          Modal.error({
+            title: '审核失败',
+            content: err?.message || '保存审核结果失败，请重试',
+            okText: '确定'
+          });
         });
-
-        // 3. 🔥 双向同步到本地存储（确保商户端/列表页都能读到）
-        localStorage.setItem('hotelList', JSON.stringify(updatedHotels));
-        localStorage.setItem('merchantHotels', JSON.stringify(updatedHotels));
-        
-        // 4. 触发storage事件，通知其他页面更新
-        window.dispatchEvent(new Event('storage'));
-
-        // 5. 提示 + 跳转回列表页
-        Modal.success({
-          title: '审核成功',
-          content: `酒店【${hotelInfo.hotelName}】已${values.auditStatus === AUDIT_STATUS.PASS ? '审核通过' : '审核不通过'}，状态已同步到商户端`,
-          okText: '确定',
-          onOk: () => navigate('/manager/hotel-audit') // 审核完成后返回列表页
-        });
-
-        // 6. 实时更新当前页面的状态
-        setHotelInfo(prev => ({
-          ...prev,
-          auditStatus: values.auditStatus,
-          rejectReason: values.auditStatus === AUDIT_STATUS.REJECT ? values.rejectReason : '',
-          publishStatus: values.auditStatus === AUDIT_STATUS.REJECT ? PUBLISH_STATUS.OFFLINE : (prev.publishStatus || PUBLISH_STATUS.OFFLINE)
-        }));
-
-      } catch (err) {
-        console.error('提交审核失败：', err);
-        Modal.error({
-          title: '审核失败',
-          content: '保存审核结果失败，请重试',
-          okText: '确定'
-        });
-      }
-    }).catch(errorInfo => {
-      // 表单验证失败提示
-      Modal.error({
-        title: '验证失败',
-        content: '请选择审核结果（不通过时必须填写原因）',
-        okText: '确定'
-      });
+    }).catch(() => {
+      Modal.error({ title: '验证失败', content: '请选择审核结果（不通过时必须填写原因）', okText: '确定' });
     });
   };
 
-  // 管理员选择上线/下线（仅审核通过的酒店可操作）
+  // 管理员选择上线/下线（调用后端接口后刷新详情）
   const handlePublishToggle = () => {
     if (!hotelInfo) return;
     const isOnline = hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE;
     const action = isOnline ? '下线' : '上线';
+    const newStatus = isOnline ? 'offline' : 'approved';
     Modal.confirm({
       title: `确认${action}`,
       content: `确定要将酒店【${hotelInfo.hotelName}】${action}吗？`,
       okText: '确认',
       cancelText: '取消',
       onOk: () => {
-        try {
-          let allHotels = [];
-          const hotelListData = localStorage.getItem('hotelList');
-          const merchantHotelsData = localStorage.getItem('merchantHotels');
-          if (hotelListData) allHotels = JSON.parse(hotelListData) || [];
-          if (allHotels.length === 0 && merchantHotelsData) allHotels = JSON.parse(merchantHotelsData) || [];
-
-          const newStatus = isOnline ? PUBLISH_STATUS.OFFLINE : PUBLISH_STATUS.ONLINE;
-          const updatedHotels = allHotels.map(hotel => {
-            if (hotel && String(hotel.id) === String(id)) {
-              return { ...hotel, publishStatus: newStatus };
-            }
-            return hotel;
+        hotelApi.updateAdminHotelStatus(id, { status: newStatus })
+          .then(() => {
+            Modal.success({ content: `${action}成功` });
+            loadHotelDetail();
+          })
+          .catch((err) => {
+            Modal.error({ content: err?.message || `${action}失败，请重试` });
           });
-
-          localStorage.setItem('hotelList', JSON.stringify(updatedHotels));
-          localStorage.setItem('merchantHotels', JSON.stringify(updatedHotels));
-          window.dispatchEvent(new Event('storage'));
-
-          setHotelInfo(prev => ({ ...prev, publishStatus: newStatus }));
-          Modal.success({ content: `${action}成功` });
-        } catch (err) {
-          console.error('操作失败：', err);
-          Modal.error({ content: `${action}失败，请重试` });
-        }
       }
     });
   };

@@ -101,7 +101,8 @@ const startServer = async () => {
     }
     
     const PORT = process.env.PORT || 3000;
-    await sequelize.sync({ alter: true });
+    // 仅创建不存在的表，不执行 ALTER，避免 users 表索引过多导致 ER_TOO_MANY_KEYS
+    await sequelize.sync();
     app.listen(PORT, () => {
       console.log(`
 🚀 服务器启动成功！

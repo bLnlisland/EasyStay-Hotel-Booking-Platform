@@ -115,6 +115,12 @@ export const authApi = {
 
 // 酒店相关接口
 export const hotelApi = {
+  // 管理员获取所有酒店：GET /api/hotels/admin/all?status=&page=1&limit=20
+  getAdminAllHotels: (params) => service.get('/api/hotels/admin/all', { params }),
+  // 管理员获取单个酒店详情（审核页）：GET /api/hotels/admin/:id
+  getAdminHotelDetail: (id) => service.get(`/api/hotels/admin/${id}`),
+  // 管理员更新酒店状态：PUT /api/hotels/admin/:id/status
+  updateAdminHotelStatus: (id, data) => service.put(`/api/hotels/admin/${id}/status`, data),
   // 获取商户自己的酒店列表：GET /api/hotels/my
   getMyHotels: () => service.get('/api/hotels/my'),
   // 创建酒店：POST /api/hotels

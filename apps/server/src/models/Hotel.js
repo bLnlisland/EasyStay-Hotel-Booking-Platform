@@ -95,6 +95,9 @@ Hotel.init({
   sequelize,
   modelName: 'Hotel',
   tableName: 'hotels',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
   indexes: [    //创建索引，加速查询
     { fields: ['city'] },
     { fields: ['star_rating'] },

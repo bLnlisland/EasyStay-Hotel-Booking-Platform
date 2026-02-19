@@ -29,6 +29,7 @@ router.post('/:id/submit', auth, roleCheck('merchant', 'admin'), HotelController
 router.delete('/:id', auth, roleCheck('merchant', 'admin'), HotelController.deleteHotel);// 删除酒店
 // ==================== 管理员接口（仅 admin） ====================
 router.get('/admin/all', auth, roleCheck('admin'), HotelController.getAllHotels);
+router.get('/admin/:id', auth, roleCheck('admin'), HotelController.getAdminHotelById);
 router.put('/admin/:id/status', auth, roleCheck('admin'), HotelController.updateHotelStatus);
 router.get('/admin/stats', auth, roleCheck('admin'), HotelController.getAdminStats);
 

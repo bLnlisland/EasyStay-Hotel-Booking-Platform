@@ -1085,57 +1085,47 @@ static async searchHotels(req, res) {
   
   // ==================== 管理员接口（需管理员权限） ====================
 
-  // 获取所有酒店（管理员）
+  // 获取所有酒店（管理员） GET /api/hotels/admin/all?status=&page=1&limit=20
   static async getAllHotels(req, res) {
     try {
-      const { 
-        status, 
-        page = 1, 
-        limit = 20,
-        sort_by = 'created_at',
-        order = 'desc'
-      } = req.query;
-      
-      const offset = (parseInt(page) - 1) * parseInt(limit);
-      
-      // 构建查询条件
-      const where = {};
-      if (status) {
-        where.status = status;
-      }
-      
-      const { count, rows: hotels } = await Hotel.findAndCountAll({
-        where,
-        include: [
-          {
-            model: User,
-            as: 'merchant',
-            attributes: ['id', 'username', 'full_name', 'email']
-          },
-          {
-            model: HotelImage,
-            as: 'images',
-            where: { is_main: true },
-            required: false,
-            limit: 1
-          }
-        ],
-        order: [[sort_by, order]],
+      const { status, page = 1, limit = 20 } = req.query;
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+      const offset = (pageNum - 1) * limitNum;
+
+      const whereClause = status ? { status } : { status: { [Op.ne]: 'deleted' } };
+
+      const { count, rows } = await Hotel.findAndCountAll({
+        where: whereClause,
+        include: [{ model: User, as: 'merchant', attributes: ['id', 'username'] }],
+        order: [['created_at', 'DESC']],
         offset,
-        limit: parseInt(limit),
+        limit: limitNum,
         distinct: true
       });
-      
+
+      const totalPages = Math.ceil(count / limitNum);
+      const hotels = rows.map(h => {
+        const raw = h.get ? h.get({ plain: true }) : h;
+        return {
+          id: raw.id,
+          name_zh: raw.name_zh,
+          status: raw.status,
+          merchant: raw.merchant ? { id: raw.merchant.id, username: raw.merchant.username } : null,
+          contact_phone: raw.contact_phone,
+          created_at: raw.created_at
+        };
+      });
+
       res.json({
         success: true,
         data: {
           hotels,
           pagination: {
             total: count,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total_pages: Math.ceil(count / limit),
-            has_more: parseInt(page) < Math.ceil(count / limit)
+            page: pageNum,
+            limit: limitNum,
+            total_pages: totalPages
           }
         }
       });
@@ -1144,6 +1134,38 @@ static async searchHotels(req, res) {
       res.status(500).json({
         success: false,
         message: '获取酒店列表失败',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // 管理员获取单个酒店详情（审核用） GET /api/hotels/admin/:id
+  static async getAdminHotelById(req, res) {
+    try {
+      const { id } = req.params;
+      const hotel = await Hotel.findByPk(id, {
+        include: [
+          { model: User, as: 'merchant', attributes: ['id', 'username', 'full_name', 'phone', 'email'] },
+          { model: RoomType, as: 'room_types' },
+          { model: HotelImage, as: 'images' }
+        ]
+      });
+      if (!hotel) {
+        return res.status(404).json({ success: false, message: '酒店不存在' });
+      }
+      if (hotel.status === 'deleted') {
+        return res.status(404).json({ success: false, message: '酒店不存在' });
+      }
+      const data = hotel.get ? hotel.get({ plain: true }) : hotel;
+      // 确保返回录入时间（created_at），供前端“录入时间”展示
+      if (!data.created_at && hotel.created_at) data.created_at = hotel.created_at;
+      if (!data.created_at && hotel.dataValues && hotel.dataValues.created_at) data.created_at = hotel.dataValues.created_at;
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('获取酒店详情错误:', error);
+      res.status(500).json({
+        success: false,
+        message: '获取酒店详情失败',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
@@ -1180,12 +1202,13 @@ static async searchHotels(req, res) {
         });
       }
       
-      // 更新状态
       const updateData = { status };
-      if (review_notes) {
-        updateData.review_notes = review_notes;
+      if (status === 'rejected' && review_notes !== undefined) {
+        updateData.rejection_reason = review_notes;
       }
-      updateData.reviewed_at = new Date();
+      if (status === 'approved') {
+        updateData.rejection_reason = '';
+      }
       
       await hotel.update(updateData);
       
