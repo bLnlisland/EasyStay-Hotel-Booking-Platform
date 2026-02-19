@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Form, Input, Button, Upload, message, Card, Typography, Radio } from 'antd';
 import { UploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import './Register.css';
 
@@ -137,10 +137,12 @@ const MerchantRegister = () => {
           layout="vertical"
           onFinish={handleSubmit}
           validateMessages={{
+            /* eslint-disable no-template-curly-in-string */
             required: '${label}为必填项！',
             pattern: '${label}格式不正确！',
             max: '${label}长度不能超过${max}个字符！',
             min: '${label}长度不能少于${min}个字符！',
+            /* eslint-enable no-template-curly-in-string */
           }}
         >
           {/* 1. 角色选择 */}
@@ -322,6 +324,13 @@ const MerchantRegister = () => {
             >
               提交注册
             </Button>
+          </Form.Item>
+
+          {/* 返回登录 */}
+          <Form.Item style={{ textAlign: 'center', marginBottom: 0 }}>
+            <Link to="/login" style={{ color: '#1677ff', fontSize: '14px' }}>
+              已有账号？返回登录
+            </Link>
           </Form.Item>
         </Form>
       </Card>

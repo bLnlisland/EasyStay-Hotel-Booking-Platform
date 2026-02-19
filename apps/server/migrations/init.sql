@@ -152,10 +152,8 @@ SET NEW.booking_reference =
     NEW.booking_reference
   );
 
--- 插入初始数据
+-- 插入初始数据（密码为占位符，请运行 npm run db:seed 生成真实密码后使用 admin/admin123 等登录）
 INSERT INTO users (username, email, password, role, full_name, phone) VALUES
 ('admin', 'admin@hotel.com', '$2a$10$YourHashedPasswordHere', 'admin', '系统管理员', '13800138000'),
 ('merchant1', 'merchant@hotel.com', '$2a$10$YourHashedPasswordHere', 'merchant', '酒店商户', '13800138001'),
 ('user1', 'user@example.com', '$2a$10$YourHashedPasswordHere', 'user', '普通用户', '13800138002');
-
--- 注意：实际使用时需要生成真实的bcrypt哈希密码

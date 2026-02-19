@@ -3,14 +3,13 @@ import {
   Form, Input, Button, Select, Checkbox, InputNumber,
   Upload, Card, Typography, Space, Divider, Modal, message
 } from 'antd';
-import { PlusOutlined, MinusOutlined, SyncOutlined } from '@ant-design/icons';
+import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { hotelApi } from '../../utils/request';
 import './HotelAdd.css';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { TextArea } = Input;
 
 // 设施选项列表（与新增界面保持一致）
 const facilityOptions = [
@@ -253,17 +252,13 @@ const HotelEdit = () => {
     const handleStorage = () => loadHotelData();
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随 id 变化加载，loadHotelData 内部依赖稳定
   }, [id]);
 
   // 图片预览方法（禁用实际预览）
   const handlePreview = async (file) => {
     message.info('图片上传功能暂未启用，调试期间无需上传');
     return false;
-  };
-
-  // 保留方法但禁用文件转换
-  const getBase64 = (file) => {
-    return new Promise((resolve) => resolve(''));
   };
 
   // 禁用文件上传：直接提示并返回false（与新增界面保持一致）
@@ -367,8 +362,10 @@ const HotelEdit = () => {
           layout="vertical"
           onFinish={onFinish}
           validateMessages={{
+            /* eslint-disable no-template-curly-in-string */
             required: '${label}为必填项！',
             pattern: '${label}格式错误！'
+            /* eslint-enable no-template-curly-in-string */
           }}
         >
           {/* 基础信息模块 */}

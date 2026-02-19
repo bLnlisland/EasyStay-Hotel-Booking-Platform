@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Button, Space, Modal } from 'antd';
+import { Table, Card, Button, Modal } from 'antd';
 import { PlusOutlined, HomeOutlined, EditOutlined, SendOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { hotelApi } from '../../utils/request';
@@ -19,7 +19,8 @@ const HotelList = () => {
     shenzhen: '深圳'
   };
 
-  // 设施值转中文（兼容新旧数据）
+  // 设施值转中文（兼容新旧数据，列表展示时可使用）
+  // eslint-disable-next-line no-unused-vars -- 保留供列表展示设施名称时使用
   const facilityMap = {
     wifi: '免费WiFi',
     parking: '停车场',

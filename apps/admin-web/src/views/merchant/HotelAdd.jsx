@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   Form, Input, Button, Select, Checkbox, InputNumber,
-  Upload, Card, Typography, Space, Divider, message, Modal
+  Upload, Card, Typography, Space, Divider, message
 } from 'antd';
-import { UploadOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
+import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 // 修正导入路径：从merchant目录往上两级到src，再进utils
 import { hotelApi } from '../../utils/request'; 
@@ -11,7 +11,6 @@ import './HotelAdd.css';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { TextArea } = Input;
 
 // 设施选项列表（与API字段名保持一致）
 const facilityOptions = [
@@ -41,11 +40,6 @@ const HotelAdd = () => {
   const handlePreview = async (file) => {
     message.info('图片上传功能暂未启用，调试期间无需上传');
     return false;
-  };
-
-  // 保留方法但禁用文件转换
-  const getBase64 = (file) => {
-    return new Promise((resolve) => resolve(''));
   };
 
   // 🔥 禁用文件上传：直接提示并返回false
@@ -109,8 +103,10 @@ const HotelAdd = () => {
             room_types: [{ name: '', base_price: 0, discount_rate: 0 }]
           }}
           validateMessages={{
+            /* eslint-disable no-template-curly-in-string */
             required: '${label}为必填项！',
             pattern: '${label}格式错误！'
+            /* eslint-enable no-template-curly-in-string */
           }}
         >
           {/* 基础信息模块 */}

@@ -29,7 +29,7 @@ const registerMerchantSchema = Joi.object({
   full_name: Joi.string().max(100).optional(),
 });
 
-// 管理员注册验证（仅超级管理员调用）
+// 管理员自助注册验证（与商户一样，公开注册）
 const registerAdminSchema = Joi.object({
   username: Joi.string().min(3).max(50).required(),
   email: Joi.string().email().required(),
@@ -458,17 +458,9 @@ static async login(req, res) {
     });
   }
 }
-  // ==================== 新增：管理员注册（仅超级管理员可调用） ====================
+  // ==================== 管理员自助注册（与商户一样，无需登录） ====================
   static async registerAdmin(req, res) {
   try {
-    // 检查当前用户是否为超级管理员（需要预先在数据库中创建超级管理员）
-    if (!req.user || req.user.role !== 'superadmin') {
-      return res.status(403).json({
-        success: false,
-        message: '需要超级管理员权限'
-      });
-    }
-
     const { error } = registerAdminSchema.validate(req.body);
     if (error) {
       return res.status(400).json({

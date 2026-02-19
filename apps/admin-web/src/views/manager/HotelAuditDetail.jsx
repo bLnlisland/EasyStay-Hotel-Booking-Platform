@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Typography, Descriptions, Form, Select, Input, Button, Modal, Space, Tag, Divider } from 'antd';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 
@@ -69,7 +69,7 @@ const HotelAuditDetail = () => {
   const [error, setError] = useState('');
 
   // 🔥 核心：加载酒店详情 + 监听本地存储变化，实时同步
-  const loadHotelDetail = () => {
+  const loadHotelDetail = useCallback(() => {
     try {
       setLoading(true);
       setError('');
@@ -122,7 +122,7 @@ const HotelAuditDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, form]);
 
   // 初始加载 + 监听本地存储变化，实时同步
   useEffect(() => {
@@ -137,7 +137,7 @@ const HotelAuditDetail = () => {
       window.removeEventListener('storage', loadHotelDetail);
       window.removeEventListener('popstate', loadHotelDetail);
     };
-  }, [id, form]);
+  }, [id, form, loadHotelDetail]);
 
   // 🔥 核心：提交审核结果，同步到本地存储（双向同步）
   const handleAuditSubmit = () => {

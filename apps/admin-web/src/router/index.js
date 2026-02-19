@@ -40,9 +40,16 @@ const PrivateRoute = ({ children, requiredRole }) => {
   }
 
   // 4. 角色不匹配 → 跳对应角色首页（防止越权）
-  if (requiredRole && currentRole !== requiredRole) {
-    const redirectPath = currentRole === 'admin' ? '/manager/home' : '/merchant/home';
+  const isManagerRole = currentRole === 'admin';
+  if (requiredRole === 'admin' && !isManagerRole) {
+    return <Navigate to="/merchant/home" replace />;
+  }
+  if (requiredRole === 'merchant' && currentRole !== 'merchant') {
+    const redirectPath = isManagerRole ? '/manager/home' : '/login';
     return <Navigate to={redirectPath} replace />;
+  }
+  if (requiredRole && requiredRole !== 'admin' && requiredRole !== 'merchant' && currentRole !== requiredRole) {
+    return <Navigate to="/login" replace />;
   }
 
   // 5. 权限通过 → 渲染页面
@@ -134,15 +141,15 @@ const routesConfig = [
   }
 ];
 
-// 🛠️ 创建路由实例（优化配置）
+// 🛠️ 创建路由实例（future 置前以消除控制台 v7_startTransition 警告）
 const router = createBrowserRouter(routesConfig, {
-  basename: '/',
-  scrollRestoration: 'top', // 跳转时自动滚动到顶部（更友好）
-  // 新增：路由跳转错误处理
   future: {
-    v7_relativeSplatPath: true, // 兼容未来版本
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
     v7_prependBasename: true,
-  }
+  },
+  basename: '/',
+  scrollRestoration: 'top',
 });
 
 // 🎯 路由根组件（优化加载提示）

@@ -36,7 +36,7 @@ User.init({
       len: [6, 100],
     },
   },
-  role: {  // 用户角色（商户、管理员、普通用户、超级管理员），默认值为 'user'
+  role: {  // 用户角色（商户、管理员、普通用户），默认值为 'user'（ENUM 保留 superadmin 以兼容旧数据）
     type: DataTypes.ENUM('merchant', 'admin', 'user', 'superadmin'),
     defaultValue: 'user',
     allowNull: false,

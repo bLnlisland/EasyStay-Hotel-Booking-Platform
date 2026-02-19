@@ -62,17 +62,25 @@ service.interceptors.response.use(
             errorMsg = `${errorMsg}：${typeof errDetail === 'string' ? errDetail : (Array.isArray(errDetail) ? errDetail.join('；') : JSON.stringify(errDetail))}`;
           }
           break;
-        case 401:
-          errorMsg = '未认证，请重新登录';
-          // 清除token并跳登录页（优化路径判断）
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('hotel_token');
-            const currentPath = window.location.pathname;
-            if (currentPath !== '/login' && !currentPath.includes('/merchant/login')) {
-              window.location.href = '/login'; // 跳转到登录页
+        case 401: {
+          const isLoginRequest = (error.config?.url || '').includes('/auth/login');
+          if (isLoginRequest) {
+            // 登录接口 401：用户名或密码错误，不跳转、不清 token，由登录页展示错误
+            errorMsg = resData?.message || '用户名或密码错误';
+          } else {
+            errorMsg = '未认证，请重新登录';
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('hotel_token');
+              localStorage.removeItem('role');
+              localStorage.removeItem('currentUser');
+              const currentPath = window.location.pathname;
+              if (currentPath !== '/login' && !currentPath.includes('/merchant/login')) {
+                window.location.href = '/login';
+              }
             }
           }
           break;
+        }
         case 403:
           errorMsg = '权限不足，无法操作';
           break;
@@ -86,8 +94,11 @@ service.interceptors.response.use(
           errorMsg = resData?.msg || resData?.message || `请求失败（${status}）`;
       }
     }
-    alert(errorMsg);
-    return Promise.reject(error);
+    const isLoginReq = error.config?.url?.includes('/auth/login');
+    if (!isLoginReq) {
+      alert(errorMsg);
+    }
+    return Promise.reject(new Error(errorMsg));
   }
 );
 

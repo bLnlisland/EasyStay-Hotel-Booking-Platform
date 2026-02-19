@@ -1,66 +1,52 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-// 导入全局封装的 request 实例
-import { authApi } from '../../utils/request'; 
+import { Link } from 'react-router-dom';
+import { authApi } from '../../utils/request';
 
 const Login = React.memo(() => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const from = location.state?.from?.pathname || '/merchant/home';
   const [loading, setLoading] = useState(false);
 
-const handleSubmit = async (values) => {
-  try {
-    setLoading(true);
+  const handleSubmit = async (values) => {
+    try {
+      setLoading(true);
 
-    const loginRes = await authApi.login({
-      username: values.username,
-      password: values.password
-    });
+      const loginRes = await authApi.login({
+        username: values.username,
+        password: values.password
+      });
 
-    console.log('📌 登录响应：', loginRes);
+      if (!loginRes || !loginRes.success) {
+        message.error(loginRes?.message || '登录失败！');
+        return;
+      }
 
-    // ✅ 正确判断：直接从 loginRes 里取 success
-    if (!loginRes.success) {
-      message.error(loginRes.message || '登录失败！');
+      const { user, token } = loginRes.data || {};
+      if (!token || !user) {
+        message.error('未获取到有效登录信息');
+        return;
+      }
+
+      const role = String(user.role || '').toLowerCase();
+      localStorage.setItem('hotel_token', token);
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('role', role);
+
+      const path = role === 'admin' ? '/manager/home' : '/merchant/home';
+      message.success('登录成功！正在跳转…');
+      // 延迟跳转，让用户看到“登录成功”提示后再整页跳转
+      setTimeout(() => {
+        window.location.replace(path);
+      }, 800);
       return;
+    } catch (error) {
+      console.error('登录错误：', error);
+      message.error(error?.message || '登录出错，请重试');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // ✅ 正确解构：从 loginRes.data 里取 user 和 token
-    const { user, token } = loginRes.data;
-    console.log('✅ 拿到 user：', user);
-    console.log('✅ 拿到 token：', token);
-
-    if (!token) {
-      message.error('未获取到有效 token');
-      return;
-    }
-
-    localStorage.setItem('hotel_token', token);
-    localStorage.setItem('currentUser', JSON.stringify(user));
-localStorage.setItem('role', user.role);
-
-    message.success('登录成功！');
-    console.log('用户角色：', user.role);
-    if (user.role === 'admin') {
-  navigate('/admin');
-} else if (user.role === 'merchant') {
-  console.log('匹配到 merch 角色，准备跳转');
-  navigate('/merchant/home'); // 你的角色是 merch，应该跳转到这里
-  console.log('navigate 已执行');
-}
-
-  } catch (error) {
-    console.error('❌ 错误详情：', error);
-    message.error(`登录出错：${error.message || '未知错误'}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // 页面渲染部分保持不变
   return (
     <div style={{ 
       maxWidth: '380px', 
@@ -93,6 +79,7 @@ localStorage.setItem('role', user.role);
             prefix={<UserOutlined style={{ color: '#1677ff' }} />} 
             placeholder="请输入账号" 
             maxLength={20}
+            autoComplete="off"
           />
         </Form.Item>
 
@@ -108,6 +95,7 @@ localStorage.setItem('role', user.role);
             prefix={<LockOutlined style={{ color: '#1677ff' }} />} 
             placeholder="请输入密码" 
             maxLength={20}
+            autoComplete="off"
           />
         </Form.Item>
 
@@ -128,10 +116,12 @@ localStorage.setItem('role', user.role);
           </Button>
         </Form.Item>
 
-        <Form.Item style={{ textAlign: 'center', marginBottom: 0, wrapperCol: { span: 24 } }}>
-          <Link to="/register" style={{ color: '#1677ff', fontSize: '14px' }}>
-            还没有账号？立即注册
-          </Link>
+        <Form.Item style={{ marginBottom: 0, wrapperCol: { span: 24 } }}>
+          <div style={{ textAlign: 'center' }}>
+            <Link to="/register" style={{ color: '#1677ff', fontSize: '14px' }}>
+              还没有账号？立即注册
+            </Link>
+          </div>
         </Form.Item>
       </Form>
     </div>

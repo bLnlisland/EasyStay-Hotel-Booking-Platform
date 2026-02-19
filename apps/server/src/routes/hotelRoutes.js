@@ -27,10 +27,10 @@ router.post('/', auth, roleCheck('merchant', 'admin'), HotelController.createHot
 router.put('/:id', auth, roleCheck('merchant', 'admin'), HotelController.updateHotel);// 更新酒店信息
 router.post('/:id/submit', auth, roleCheck('merchant', 'admin'), HotelController.submitForReview);// 提交酒店审核
 router.delete('/:id', auth, roleCheck('merchant', 'admin'), HotelController.deleteHotel);// 删除酒店
-// ==================== 管理员接口 ====================
-router.get('/admin/all', auth, roleCheck('admin'), HotelController.getAllHotels);// 获取所有酒店信息（管理员查看所有酒店）
-router.put('/admin/:id/status', auth, roleCheck('admin'), HotelController.updateHotelStatus);// 更新酒店的状态（管理员可以审批酒店状态，如通过、拒绝等）
-router.get('/admin/stats', auth, roleCheck('admin'), HotelController.getAdminStats);// 获取管理员统计数据（如：酒店数量、预定情况等统计数据）
+// ==================== 管理员接口（仅 admin） ====================
+router.get('/admin/all', auth, roleCheck('admin'), HotelController.getAllHotels);
+router.put('/admin/:id/status', auth, roleCheck('admin'), HotelController.updateHotelStatus);
+router.get('/admin/stats', auth, roleCheck('admin'), HotelController.getAdminStats);
 
 module.exports = router;
 console.log('✅ hotelRoutes loaded, image routes mounted');
