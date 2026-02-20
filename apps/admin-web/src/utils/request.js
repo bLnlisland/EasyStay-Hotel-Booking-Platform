@@ -1,24 +1,26 @@
 import axios from 'axios';
 
-// 1. 基础配置：统一根URL，避免路径拼接错误
-const BASE_URL = 'http://localhost:3000'; // 根域名，所有接口都基于这个地址
+// 1. 基础配置：开发环境走代理同源请求，避免跨域/上传报网络错误
+const isDevProxy = typeof window !== 'undefined' && window.location.port === '3001';
+const API_BASE = isDevProxy ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:3000');
+export const BASE_URL = isDevProxy ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:3000'); // 图片同源时用空（走代理）
 const service = axios.create({
-  baseURL: BASE_URL, // 统一根URL，后续接口只需写相对路径
-  timeout: 10000,
+  baseURL: API_BASE,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// 2. 请求拦截器：添加Bearer Token认证（保留你的核心逻辑）
+// 2. 请求拦截器：Token + FormData 时去掉 Content-Type 让浏览器自动带 boundary
 service.interceptors.request.use(
   (config) => {
-    // 仅浏览器环境读取token
+    if (config.data && typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('hotel_token');
-      // 🔥 关键修复：先确保 headers 存在，再添加 token
       if (token) {
-        // 如果 headers 不存在，先初始化空对象
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -34,7 +36,6 @@ service.interceptors.response.use(
     const res = response.data;
     // 兼容两种成功判断：code=200 或 success=true
     if (res.code === 200 || res.success) {
-      // 201状态码（创建成功）单独提示
       if (response.status === 201) {
         alert(res.msg || res.message || '创建成功');
       }
@@ -88,7 +89,7 @@ service.interceptors.response.use(
           errorMsg = '请求的资源不存在';
           break;
         case 500:
-          errorMsg = '服务器内部错误，请稍后重试';
+          errorMsg = resData?.message || '服务器内部错误，请稍后重试';
           break;
         default:
           errorMsg = resData?.msg || resData?.message || `请求失败（${status}）`;
@@ -119,8 +120,10 @@ export const hotelApi = {
   getAdminAllHotels: (params) => service.get('/api/hotels/admin/all', { params }),
   // 管理员获取单个酒店详情（审核页）：GET /api/hotels/admin/:id
   getAdminHotelDetail: (id) => service.get(`/api/hotels/admin/${id}`),
-  // 管理员更新酒店状态：PUT /api/hotels/admin/:id/status
+  // 管理员更新酒店状态（审核）：PUT /api/hotels/admin/:id/status
   updateAdminHotelStatus: (id, data) => service.put(`/api/hotels/admin/${id}/status`, data),
+  // 管理员设置酒店上下线（发布）：PUT /api/hotels/admin/:id/publish
+  updateAdminHotelPublish: (id, data) => service.put(`/api/hotels/admin/${id}/publish`, data),
   // 获取商户自己的酒店列表：GET /api/hotels/my
   getMyHotels: () => service.get('/api/hotels/my'),
   // 创建酒店：POST /api/hotels
@@ -132,7 +135,14 @@ export const hotelApi = {
   // 删除酒店：DELETE /api/hotels/{id}
   deleteHotel: (id) => service.delete(`/api/hotels/${id}`),
   // 提交审核：POST /api/hotels/{id}/submit
-  submitForReview: (id) => service.post(`/api/hotels/${id}/submit`)
+  submitForReview: (id) => service.post(`/api/hotels/${id}/submit`),
+  // 酒店图片：GET /api/hotels/:id/images
+  getHotelImages: (hotelId) => service.get(`/api/hotels/${hotelId}/images`),
+  // 上传酒店图片：POST /api/hotels/:id/images（FormData，不设 Content-Type 以自动带 boundary）
+  uploadHotelImages: (hotelId, formData) =>
+    service.post(`/api/hotels/${hotelId}/images`, formData),
+  // 删除酒店图片：DELETE /api/hotels/:id/images/:imageId
+  deleteHotelImage: (hotelId, imageId) => service.delete(`/api/hotels/${hotelId}/images/${imageId}`)
 };
 
 // 导出基础service和封装后的接口

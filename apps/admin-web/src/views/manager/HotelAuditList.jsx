@@ -14,7 +14,8 @@ const AUDIT_STATUS = {
 
 const PUBLISH_STATUS = {
   ONLINE: 'online',
-  OFFLINE: 'offline'
+  OFFLINE: 'offline',
+  NA: 'na'  // 未审核通过，不适用上下线
 };
 
 // 状态显示映射
@@ -23,16 +24,23 @@ const STATUS_LABEL = {
   [AUDIT_STATUS.PASS]: <Tag color="green">已通过</Tag>,
   [AUDIT_STATUS.REJECT]: <Tag color="red">不通过</Tag>,
   [PUBLISH_STATUS.ONLINE]: <Tag color="blue">已上线</Tag>,
-  [PUBLISH_STATUS.OFFLINE]: <Tag color="default">已下线</Tag>
+  [PUBLISH_STATUS.OFFLINE]: <Tag color="default">未上线</Tag>,
+  [PUBLISH_STATUS.NA]: <Tag color="default">—</Tag>
 };
 
-// 后端 status 映射为列表审核状态
+// 后端 status 映射为审核状态；发布状态仅审核通过后才有意义，否则显示 —
 const mapStatusToAudit = (status) => {
-  if (status === 'approved') return AUDIT_STATUS.PASS;
+  if (status === 'approved' || status === 'offline') return AUDIT_STATUS.PASS;
   if (status === 'rejected') return AUDIT_STATUS.REJECT;
   return AUDIT_STATUS.PENDING;
 };
-const mapStatusToPublish = (status) => (status === 'approved' ? PUBLISH_STATUS.ONLINE : PUBLISH_STATUS.OFFLINE);
+// 仅当审核通过时根据 is_online 显示已上线/已下线；未通过则显示 —
+const mapToPublishStatus = (status, isOnline) => {
+  if (status === 'approved' || status === 'offline') {
+    return isOnline === true ? PUBLISH_STATUS.ONLINE : PUBLISH_STATUS.OFFLINE;
+  }
+  return PUBLISH_STATUS.NA;
+};
 
 const HotelAuditList = () => {
   const navigate = useNavigate();
@@ -62,7 +70,7 @@ const HotelAuditList = () => {
           contactPhone: h.contact_phone || '未填写',
           createTime: h.created_at ? new Date(h.created_at).toLocaleString() : '未填写',
           auditStatus: mapStatusToAudit(h.status),
-          publishStatus: mapStatusToPublish(h.status),
+          publishStatus: mapToPublishStatus(h.status, h.is_online),
           rejectReason: ''
         })));
       })
@@ -125,18 +133,18 @@ const HotelAuditList = () => {
     },
   ];
 
-  // 管理员选择上线/下线（仅审核通过的酒店可操作）
+  // 管理员选择上线/下线（调用发布接口，与审核分离）
   const handleQuickPublish = (record) => {
     const isOnline = record.publishStatus === PUBLISH_STATUS.ONLINE;
     const action = isOnline ? '下线' : '上线';
-    const newStatus = isOnline ? 'offline' : 'approved';
+    const newIsOnline = !isOnline;
     Modal.confirm({
       title: `确认${action}`,
       content: `确定要将酒店【${record.hotelName}】${action}吗？`,
       okText: '确认',
       cancelText: '取消',
       onOk: () => {
-        hotelApi.updateAdminHotelStatus(record.id, { status: newStatus })
+        hotelApi.updateAdminHotelPublish(record.id, { is_online: newIsOnline })
           .then(() => {
             Modal.success({ content: `${action}成功` });
             loadFromApi(pagination.page, pagination.limit);

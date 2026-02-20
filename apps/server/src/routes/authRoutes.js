@@ -3,11 +3,14 @@ const express = require('express');
 const router = express.Router();
 const AuthController = require('../controllers/authController');
 const { auth, validateRequest } = require('../middlewares/auth');
+const { upload } = require('../middlewares/upload');
 
 // ========== 公开路由（无需 token，放最前避免被其他路由或中间件影响） ==========
+// 商户注册上传执照图片（必须放在最前，避免被其他路由误匹配）
+router.post('/upload/license', upload.single('license'), AuthController.uploadLicense);
 router.post('/register', AuthController.register);
 router.post('/register/merchant', AuthController.registerMerchant);
-router.post('/register/admin', AuthController.registerAdmin); // 管理员自助注册
+router.post('/register/admin', AuthController.registerAdmin);
 router.post('/login', AuthController.login);
 router.get('/diagnose', AuthController.diagnose);
 

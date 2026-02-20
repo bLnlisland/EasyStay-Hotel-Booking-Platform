@@ -36,57 +36,55 @@ const HotelAdd = () => {
   const [imageFileList, setImageFileList] = useState([]); // 保留图片列表state
   const navigate = useNavigate();
 
-  // 保留图片预览方法（但禁用实际预览）
-  const handlePreview = async (file) => {
-    message.info('图片上传功能暂未启用，调试期间无需上传');
-    return false;
-  };
+  // 图片选择后不自动上传，仅收集到列表，提交时再上传
+  const beforeUpload = () => false;
 
-  // 🔥 禁用文件上传：直接提示并返回false
-  const beforeUpload = (file) => {
-    message.info('图片上传功能暂未启用，调试期间无需上传');
-    return false;
-  };
-
-  // 保留图片列表变化方法
   const handleImageChange = ({ fileList }) => {
     setImageFileList(fileList);
   };
 
-  // 核心：创建酒店逻辑（移除图片相关验证和提交）
   const onFinish = async (values) => {
     try {
-      // 🔥 移除图片验证逻辑（不再校验是否上传图片）
-      // if (imageFileList.length === 0) {
-      //   message.error('请至少上传一张有效图片！');
-      //   return;
-      // }
-
-      // 构造请求体（移除images字段，不提交图片数据）
       const requestBody = {
-        name_zh: values.hotelName,          
-        city: values.city,                 
-        address: values.address,           
-        star_rating: values.star_rating,   
-        facilities: values.facilities,    
-        room_types: values.room_types.map(room => ({ 
+        name_zh: values.hotelName,
+        city: values.city,
+        address: values.address,
+        star_rating: values.star_rating,
+        facilities: values.facilities,
+        room_types: values.room_types.map(room => ({
           name: room.name,
           base_price: room.base_price,
-          discount_rate: room.discount_rate || 0 
+          area: room.area != null && room.area !== '' ? room.area : null
         }))
-        // 🔥 注释掉图片字段，不提交到接口
-        // images: imageFileList.map(file => file.url)
       };
 
-      // 调用创建酒店接口
       const response = await hotelApi.createHotel(requestBody);
-
-      if (response.success) {
-        message.success('酒店创建成功！');
-        navigate('/merchant/hotel-list');
+      if (!response.success || !response.data?.id) {
+        message.error(response.message || '创建失败');
+        return;
       }
+
+      const hotelId = response.data.id;
+      const filesToUpload = imageFileList
+        .filter(f => f.originFileObj)
+        .map(f => f.originFileObj);
+
+      if (filesToUpload.length > 0) {
+        const formData = new FormData();
+        filesToUpload.forEach((file, idx) => formData.append('images', file));
+        formData.append('mainIndex', '0');
+        try {
+          await hotelApi.uploadHotelImages(hotelId, formData);
+        } catch (uploadErr) {
+          message.warning('酒店已创建，但图片上传失败，可在编辑页重新上传');
+        }
+      }
+
+      message.success('酒店创建成功！');
+      navigate('/merchant/hotel-list');
     } catch (error) {
       console.error('提交失败：', error);
+      message.error(error?.message || '创建失败，请重试');
     }
   };
 
@@ -100,7 +98,7 @@ const HotelAdd = () => {
           initialValues={{
             facilities: [],
             star_rating: 3, 
-            room_types: [{ name: '', base_price: 0, discount_rate: 0 }]
+            room_types: [{ name: '', base_price: 0, area: null }]
           }}
           validateMessages={{
             /* eslint-disable no-template-curly-in-string */
@@ -189,7 +187,7 @@ const HotelAdd = () => {
                     <Form.Item
                       {...restField}
                       name={[name, 'base_price']}
-                      label="基础价格(元/晚)"
+                      label="价格(元/晚)"
                       rules={[{ required: true }]}
                     >
                       <InputNumber min={0} precision={2} placeholder="0.00" style={{ width: 140 }} />
@@ -197,11 +195,10 @@ const HotelAdd = () => {
 
                     <Form.Item
                       {...restField}
-                      name={[name, 'discount_rate']}
-                      label="折扣率"
-                      rules={[{ required: true }]}
+                      name={[name, 'area']}
+                      label="面积(㎡)"
                     >
-                      <InputNumber min={0} max={1} step={0.01} precision={2} placeholder="0.00" style={{ width: 120 }} />
+                      <InputNumber min={0} precision={0} placeholder="选填" style={{ width: 100 }} />
                     </Form.Item>
 
                     <Button
@@ -228,29 +225,24 @@ const HotelAdd = () => {
             )}
           </Form.List>
 
-          {/* 🔥 保留图片上传UI，但禁用必填校验和实际上传功能 */}
-          <Divider orientation="left">酒店图片（调试期间无需上传）</Divider>
-          <Form.Item
-            label="上传酒店图片"
-            rules={[]} // 🔥 清空必填校验规则
-          >
+          <Divider orientation="left">酒店图片</Divider>
+          <Form.Item label="上传酒店图片" rules={[]}>
             <Upload
               name="file"
               listType="picture-card"
               fileList={imageFileList}
-              beforeUpload={beforeUpload} // 禁用上传
+              beforeUpload={beforeUpload}
               onChange={handleImageChange}
-              onPreview={handlePreview} // 禁用预览
               multiple
-              action={() => {}} // 空action，防止自动上传
+              accept="image/jpeg,image/jpg,image/png"
             >
               <div>
                 <PlusOutlined />
-                <div style={{ marginTop: 8 }}>调试期间无需上传</div>
+                <div style={{ marginTop: 8 }}>上传图片</div>
               </div>
             </Upload>
-            <Text type="secondary" style={{ marginTop: 8, display: 'block', color: '#999' }}>
-              调试期间暂不启用图片上传功能，正式环境将支持JPG/PNG/JPEG格式（单张≤2MB）
+            <Text type="secondary" style={{ marginTop: 8, display: 'block' }}>
+              支持 JPG/PNG，创建酒店后可在此选择多张图片，提交时一并上传（选填）
             </Text>
           </Form.Item>
 

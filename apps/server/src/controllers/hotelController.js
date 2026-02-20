@@ -25,8 +25,11 @@ static async getHotels(req, res) {
     // 分页参数
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    // 基础筛选条件 - 只获取已审核通过的酒店
-    const where = { status: 'approved' };
+    // 基础筛选条件 - 只获取已审核通过且已上线的酒店（审核与上下线分离）
+    const where = {
+      status: 'approved',
+      [Op.or]: [{ is_online: true }, { is_online: null }]
+    };
 
     // 城市筛选
     if (city) {
@@ -197,8 +200,9 @@ static async getHotels(req, res) {
         });
       }
       
-      // 权限检查：非审核通过的酒店只允许管理员或商户本人查看
-      if (hotel.status !== 'approved' && req.user?.role !== 'admin' && req.user?.id !== hotel.merchant_id) {
+      // 权限检查：非审核通过或未上线的酒店只允许管理员或商户本人查看
+      const canView = hotel.status === 'approved' && (hotel.is_online === true || hotel.is_online === null);
+      if (!canView && req.user?.role !== 'admin' && req.user?.id !== hotel.merchant_id) {
         return res.status(403).json({
           success: false,
           message: '无权查看该酒店'
@@ -208,31 +212,19 @@ static async getHotels(req, res) {
       // 处理酒店数据
       const hotelData = HotelController.processHotelData(hotel);
 
-      // 处理房型详细信息
+      // 处理房型详细信息（价格即 base_price，含面积）
       if (hotelData.room_types) {
-        hotelData.room_types = hotelData.room_types.map(room => {
-          const discountedPrice = parseFloat((room.base_price * room.discount_rate).toFixed(2));
-          const discountPercentage = Math.round((1 - room.discount_rate) * 100);
+        hotelData.room_types = hotelData.room_types.map(room => ({
+          ...room,
+          is_available_for_dates: true,
+          is_available_for_guests: room.max_guests >= parseInt(guests)
+        }));
 
-          return {
-            ...room,
-            discounted_price: discountedPrice,
-            original_price: room.base_price,
-            discount_percentage: room.discount_rate < 1 ? discountPercentage : 0,
-            has_discount: room.discount_rate < 1,
-            is_available_for_dates: true, // 暂时假设所有日期都可用
-            is_available_for_guests: room.max_guests >= parseInt(guests)
-          };
-        });
-
-        // 计算酒店的价格范围
         if (hotelData.room_types.length > 0) {
-          const prices = hotelData.room_types.map(room => room.discounted_price);
+          const prices = hotelData.room_types.map(room => parseFloat(room.base_price) || 0);
           hotelData.min_price = Math.min(...prices);
           hotelData.max_price = Math.max(...prices);
-          
-          // 计算平均价格
-          hotelData.avg_price = parseFloat((prices.reduce((sum, price) => sum + price, 0) / prices.length).toFixed(2));
+          hotelData.avg_price = parseFloat((prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2));
         }
       }
 
@@ -254,7 +246,7 @@ static async getHotels(req, res) {
         if (hotelData.room_types) {
           hotelData.room_types = hotelData.room_types.map(room => ({
             ...room,
-            total_price: parseFloat((room.discounted_price * nights).toFixed(2)),
+            total_price: parseFloat((parseFloat(room.base_price) * nights).toFixed(2)),
             nights
           }));
         }
@@ -280,14 +272,14 @@ static async getHotels(req, res) {
       const { limit = 10 } = req.query;
 
       const cities = await Hotel.findAll({
-        where: { status: 'approved' },
+        where: { status: 'approved', [Op.or]: [{ is_online: true }, { is_online: null }] },
         attributes: [
           'city',
           'province',
           [sequelize.fn('COUNT', sequelize.col('id')), 'hotel_count'],
           [
             sequelize.literal(`
-              (SELECT MIN(rt.base_price * rt.discount_rate)
+              (SELECT MIN(rt.base_price)
                FROM room_types rt
                WHERE rt.hotel_id = Hotel.id AND rt.is_available = true)
             `),
@@ -325,7 +317,7 @@ static async getHotels(req, res) {
     try {
       const { city } = req.query;
 
-      const where = { status: 'approved' };
+      const where = { status: 'approved', [Op.or]: [{ is_online: true }, { is_online: null }] };
       if (city) {
         where.city = city;
       }
@@ -344,8 +336,8 @@ static async getHotels(req, res) {
           'id',
           [
             sequelize.literal(`
-              (SELECT MIN(base_price * discount_rate) 
-               FROM room_types 
+              (SELECT MIN(base_price)
+               FROM room_types
                WHERE hotel_id = Hotel.id AND is_available = true)
             `),
             'min_price'
@@ -457,9 +449,10 @@ static async searchHotels(req, res) {
     
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
-    // 构建搜索条件
+    // 构建搜索条件（仅已上线）
     const where = {
-      status: 'approved'
+      status: 'approved',
+      [Op.or]: [{ is_online: true }, { is_online: null }]
     };
     
     // 如果有关键词，使用多字段搜索
@@ -573,9 +566,12 @@ static async searchHotels(req, res) {
       const hotels = await Hotel.findAll({
         where: {
           status: 'approved',
-          [Op.or]: [
-            { name_zh: { [Op.like]: `%${searchTerm}%` } },
-            { name_en: { [Op.like]: `%${searchTerm}%` } }
+          [Op.and]: [
+            { [Op.or]: [{ is_online: true }, { is_online: null }] },
+            { [Op.or]: [
+              { name_zh: { [Op.like]: `%${searchTerm}%` } },
+              { name_en: { [Op.like]: `%${searchTerm}%` } }
+            ]}
           ]
         },
         include: [{
@@ -593,6 +589,7 @@ static async searchHotels(req, res) {
       const cities = await Hotel.findAll({
         where: {
           status: 'approved',
+          [Op.or]: [{ is_online: true }, { is_online: null }],
           city: { [Op.like]: `%${searchTerm}%` }
         },
         attributes: [
@@ -703,41 +700,23 @@ static async searchHotels(req, res) {
     }
   }
 
-  // 辅助方法：处理酒店数据
+  // 辅助方法：处理酒店数据（价格直接用 base_price，房型含面积）
   static processHotelData(hotel) {
     const hotelData = hotel.toJSON();
     
-    // 计算最低价格
     if (hotelData.room_types && hotelData.room_types.length > 0) {
-      const prices = hotelData.room_types.map(room =>
-        parseFloat((room.base_price * room.discount_rate).toFixed(2))
-      );
-      hotelData.min_price = Math.min(...prices);
+      const prices = hotelData.room_types.map(room => parseFloat(room.base_price) || 0).filter(p => p > 0);
+      hotelData.min_price = prices.length ? Math.min(...prices) : null;
     } else {
       hotelData.min_price = null;
     }
 
-    // 计算折扣信息
-    if (hotelData.room_types && hotelData.room_types.length > 0) {
-      const discountedRooms = hotelData.room_types.filter(room => room.discount_rate < 1);
-      if (discountedRooms.length > 0) {
-        const maxDiscount = Math.min(...discountedRooms.map(room => room.discount_rate));
-        hotelData.has_discount = true;
-        hotelData.max_discount = Math.round((1 - maxDiscount) * 100); // 百分比
-      } else {
-        hotelData.has_discount = false;
-      }
-    }
-
-    // 简化响应数据
     if (hotelData.room_types) {
-      // 只保留必要的房型信息
       hotelData.room_types = hotelData.room_types.map(room => ({
         id: room.id,
         name: room.name,
         base_price: room.base_price,
-        discount_rate: room.discount_rate,
-        discounted_price: parseFloat((room.base_price * room.discount_rate).toFixed(2)),
+        area: room.area,
         available_count: room.available_count,
         max_guests: room.max_guests
       }));
@@ -863,7 +842,7 @@ static async searchHotels(req, res) {
             hotel_id: hotel.id,
             name: rt.name || '未命名房型',
             base_price: Number(rt.base_price) || 0,
-            discount_rate: Math.min(1, Math.max(0.1, Number(rt.discount_rate) || 1)),
+            area: rt.area != null && rt.area !== '' ? Number(rt.area) : null,
             is_available: true
           }))
         );
@@ -888,7 +867,7 @@ static async searchHotels(req, res) {
     }
   }
 
-  // 更新酒店信息
+  // 更新酒店信息（使用事务，避免锁等待超时）
   static async updateHotel(req, res) {
     try {
       const { id } = req.params;
@@ -913,26 +892,29 @@ static async searchHotels(req, res) {
         });
       }
 
-      await hotel.update(updateData);
+      const updated = await sequelize.transaction(async (t) => {
+        await hotel.update(updateData, { transaction: t });
 
-      // 若提交了 room_types，则同步到 room_types 表（先删后增）
-      if (Array.isArray(room_types)) {
-        await RoomType.destroy({ where: { hotel_id: id } });
-        if (room_types.length > 0) {
-          await RoomType.bulkCreate(
-            room_types.map(rt => ({
-              hotel_id: id,
-              name: rt.name || '未命名房型',
-              base_price: Number(rt.base_price) || 0,
-              discount_rate: Math.min(1, Math.max(0.1, Number(rt.discount_rate) || 1)),
-              is_available: true
-            }))
-          );
+        if (Array.isArray(room_types)) {
+          await RoomType.destroy({ where: { hotel_id: id }, transaction: t });
+          if (room_types.length > 0) {
+            await RoomType.bulkCreate(
+              room_types.map(rt => ({
+                hotel_id: id,
+                name: rt.name || '未命名房型',
+                base_price: Number(rt.base_price) || 0,
+                area: rt.area != null && rt.area !== '' ? Number(rt.area) : null,
+                is_available: true
+              })),
+              { transaction: t }
+            );
+          }
         }
-      }
 
-      const updated = await Hotel.findByPk(id, {
-        include: [{ model: RoomType, as: 'room_types' }]
+        return Hotel.findByPk(id, {
+          include: [{ model: RoomType, as: 'room_types' }],
+          transaction: t
+        });
       });
 
       res.json({
@@ -942,9 +924,17 @@ static async searchHotels(req, res) {
       });
     } catch (error) {
       console.error('更新酒店错误:', error);
+      const code = error.original?.code || error.code;
+      const errno = error.original?.errno;
+      let message = '更新酒店失败';
+      if (code === 'ECONNRESET' || code === 'ECONNREFUSED' || errno === -4077) {
+        message = '数据库连接中断，请稍后重试';
+      } else if (errno === 1205 || error.name === 'SequelizeTimeoutError') {
+        message = '更新时数据库繁忙，请稍后重试';
+      }
       res.status(500).json({
         success: false,
-        message: '更新酒店失败',
+        message,
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
@@ -1111,6 +1101,7 @@ static async searchHotels(req, res) {
           id: raw.id,
           name_zh: raw.name_zh,
           status: raw.status,
+          is_online: raw.is_online,
           merchant: raw.merchant ? { id: raw.merchant.id, username: raw.merchant.username } : null,
           contact_phone: raw.contact_phone,
           created_at: raw.created_at
@@ -1208,10 +1199,14 @@ static async searchHotels(req, res) {
       }
       if (status === 'approved') {
         updateData.rejection_reason = '';
+        updateData.is_online = false; // 审核通过后默认下线，需管理员点「上线」才对用户端展示
       }
-      
+      if (status === 'rejected') {
+        updateData.is_online = false;
+      }
+
       await hotel.update(updateData);
-      
+
       res.json({
         success: true,
         message: `酒店已${status === 'approved' ? '审核通过' : status === 'rejected' ? '审核拒绝' : '重置为待审核'}`,
@@ -1222,6 +1217,46 @@ static async searchHotels(req, res) {
       res.status(500).json({
         success: false,
         message: '更新状态失败',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // 管理员设置酒店上下线（与审核分离，仅改 is_online）
+  static async setHotelPublish(req, res) {
+    try {
+      const id = req.params.id;
+      const raw = req.body && req.body.hasOwnProperty('is_online') ? req.body.is_online : undefined;
+      if (raw === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: '请传请求体 JSON：{ "is_online": true } 或 { "is_online": false }'
+        });
+      }
+      const is_online = raw === true || raw === 'true' || raw === 1;
+      const hotel = await Hotel.findByPk(id);
+      if (!hotel) {
+        return res.status(404).json({ success: false, message: '酒店不存在' });
+      }
+      if (hotel.status !== 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: '仅审核通过的酒店可设置上下线'
+        });
+      }
+      await hotel.update({ is_online: !!is_online });
+      res.json({
+        success: true,
+        message: is_online ? '已上线' : '已下线',
+        data: hotel
+      });
+    } catch (error) {
+      console.error('设置上下线错误:', error);
+      const msg = error.message || '';
+      const isColumnMissing = /Unknown column|is_online|ENOENT/i.test(msg);
+      res.status(500).json({
+        success: false,
+        message: isColumnMissing ? '数据库缺少 is_online 字段，请执行迁移或 sync({ alter: true })' : '操作失败',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
@@ -1313,6 +1348,7 @@ static async searchHotels(req, res) {
       
       const where = { 
         status: 'approved',
+        [Op.or]: [{ is_online: true }, { is_online: null }],
         star_rating: { [Op.gte]: 4 } // 推荐4星以上的酒店
       };
       
@@ -1351,8 +1387,6 @@ static async searchHotels(req, res) {
         hotelData.recommendation_reason = '高分好评酒店';
         if (hotelData.star_rating >= 4.5) {
           hotelData.recommendation_reason = '顶级豪华酒店';
-        } else if (hotelData.has_discount) {
-          hotelData.recommendation_reason = '特惠折扣酒店';
         }
         
         return hotelData;

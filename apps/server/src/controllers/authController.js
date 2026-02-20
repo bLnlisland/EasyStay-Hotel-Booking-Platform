@@ -22,7 +22,7 @@ const registerMerchantSchema = Joi.object({
   password: Joi.string().min(6).max(100).required(),
   business_name: Joi.string().max(100).required(),
   business_license: Joi.string().length(18).required(), // 统一信用代码18位
-  license_image: Joi.string().uri().required(),        // 图片URL
+  license_image: Joi.string().min(1).max(500).required(), // 图片路径，如 /uploads/xxx.jpg
   contact_name: Joi.string().max(100).required(),
   phone: Joi.string().max(20).required(),
   address: Joi.string().max(200).optional(),
@@ -513,6 +513,20 @@ static async login(req, res) {
     });
   }
 }
+
+  // 商户注册用：上传营业执照图片（公开，无需登录）
+  static async uploadLicense(req, res) {
+    try {
+      if (!req.file || !req.file.filename) {
+        return res.status(400).json({ success: false, message: '请选择一张图片上传' });
+      }
+      const url = '/uploads/' + req.file.filename;
+      res.json({ success: true, url });
+    } catch (error) {
+      console.error('执照图片上传错误:', error);
+      res.status(500).json({ success: false, message: '上传失败' });
+    }
+  }
 }
 
 module.exports = AuthController;

@@ -26,7 +26,10 @@ module.exports = {
       max: 10,
       min: 0,
       acquire: 30000,
-      idle: 10000
+      idle: 60000
+    },
+    dialectOptions: {
+      connectTimeout: 10000
     },
     timezone: '+08:00'
   },

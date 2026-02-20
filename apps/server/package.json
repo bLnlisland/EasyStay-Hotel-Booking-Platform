@@ -12,6 +12,7 @@
     "db:reset": "node scripts/db-init.js reset",
     "db:backup": "node scripts/db-init.js backup",
     "db:test": "node scripts/db-test.js",
+    "db:add-is-online": "node scripts/add-is-online-column.js",
     "migrate": "node scripts/db-init.js init && node scripts/db-init.js seed"
   },
   "keywords": [

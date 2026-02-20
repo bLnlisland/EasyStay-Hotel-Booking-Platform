@@ -88,7 +88,7 @@ const HotelList = () => {
           facilities: item.facilities || [],
           auditStatus: item.status || 'pending',
           publishStatus: item.publish_status || 'offline',
-          createTime: item.created_at || new Date().toLocaleString('zh-CN'),
+          createTime: item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '',
           rejectReason: item.reject_reason || ''
         }));
 
@@ -252,7 +252,11 @@ const HotelList = () => {
       dataIndex: 'createTime',
       key: 'createTime',
       width: 172,
-      render: (t) => t || '—'
+      render: (t) => {
+        if (!t) return '—';
+        if (typeof t === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(t)) return new Date(t).toLocaleString('zh-CN');
+        return t;
+      }
     },
     {
       title: '操作',
@@ -261,8 +265,9 @@ const HotelList = () => {
       render: (_, record) => {
         const status = record.auditStatus || record.status || 'draft';
         const canSubmit = status === 'draft';
-        // 草稿、审核中、已拒绝 均可重新编辑
-        const canEdit = status === 'draft' || status === 'pending' || status === 'under_review' || status === 'rejected';
+        const canResubmit = status === 'rejected' || status === 'approved';
+        // 草稿、审核中、已拒绝、已通过 均可编辑
+        const canEdit = status === 'draft' || status === 'pending' || status === 'under_review' || status === 'rejected' || status === 'approved';
         return (
           <div className="action-btns">
             {canEdit && (
@@ -285,6 +290,17 @@ const HotelList = () => {
                 onClick={() => handleSubmitForReview(record.id)}
               >
                 提交审核
+              </Button>
+            )}
+            {canResubmit && (
+              <Button
+                type="text"
+                size="small"
+                className="action-btn action-btn-submit"
+                icon={<SendOutlined />}
+                onClick={() => handleSubmitForReview(record.id)}
+              >
+                重新提交审核
               </Button>
             )}
             {canEdit && (

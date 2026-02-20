@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import { hotelApi } from '../../utils/request';
+import { hotelApi, BASE_URL } from '../../utils/request';
 import './HotelAdd.css';
 
 const { Title, Text } = Typography;
@@ -91,17 +91,17 @@ const HotelEdit = () => {
       return raw.room_types.map(rt => ({
         name: rt.name || '',
         base_price: toNum(rt.base_price ?? rt.original_price ?? rt.price),
-        discount_rate: Math.min(1, Math.max(0.1, toNum(rt.discount_rate ?? 1)))
+        area: rt.area != null && rt.area !== '' ? toNum(rt.area) : null
       }));
     }
     if (raw.roomList && Array.isArray(raw.roomList)) {
       return raw.roomList.map(rt => ({
         name: rt.roomName || rt.name || '',
         base_price: toNum(rt.price ?? rt.base_price),
-        discount_rate: Math.min(1, Math.max(0.1, toNum(rt.discount_rate ?? 1)))
+        area: rt.area != null && rt.area !== '' ? toNum(rt.area) : null
       }));
     }
-    return [{ name: '', base_price: 0, discount_rate: 0 }];
+    return [{ name: '', base_price: 0, area: null }];
   };
 
   const normalizeToFormHotel = (raw) => {
@@ -204,7 +204,7 @@ const HotelEdit = () => {
       const facilities = Array.isArray(targetHotel.facilities) ? [...targetHotel.facilities] : [];
       const roomTypes = targetHotel.room_types && targetHotel.room_types.length > 0
         ? targetHotel.room_types
-        : [{ name: '', base_price: 0, discount_rate: 0 }];
+        : [{ name: '', base_price: 0, area: null }];
 
       // 先 reset 再 set，确保 Form.List 能正确渲染多条房型
       form.resetFields();
@@ -223,14 +223,16 @@ const HotelEdit = () => {
 
       const initImageList = [];
       const imgs = targetHotel.images || [];
-      imgs.forEach((url, index) => {
-        const src = typeof url === 'string' ? url : (url?.url || url?.image_url || '');
-        if (src) {
+      imgs.forEach((img, index) => {
+        const url = typeof img === 'string' ? img : (img?.url || img?.image_url || '');
+        if (url) {
+          const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
           initImageList.push({
-            uid: `img-${index}-${Date.now()}`,
+            uid: `img-${img?.id ?? index}-${Date.now()}`,
+            id: img?.id,
             name: `酒店图片${index + 1}`,
             status: 'done',
-            url: src
+            url: fullUrl
           });
         }
       });
@@ -255,28 +257,51 @@ const HotelEdit = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随 id 变化加载，loadHotelData 内部依赖稳定
   }, [id]);
 
-  // 图片预览方法（禁用实际预览）
-  const handlePreview = async (file) => {
-    message.info('图片上传功能暂未启用，调试期间无需上传');
-    return false;
-  };
-
-  // 禁用文件上传：直接提示并返回false（与新增界面保持一致）
-  const beforeUpload = (file) => {
-    message.info('图片上传功能暂未启用，调试期间无需上传');
-    return false;
-  };
-
-  // 保留图片列表变化方法
   const handleImageChange = ({ fileList }) => {
     setImageFileList(fileList);
   };
 
-  // 提交审核功能
+  const handleImageRemove = (file) => {
+    if (file.id) {
+      hotelApi.deleteHotelImage(id, file.id).catch(() => message.error('删除图片失败'));
+    }
+  };
+
+  const handleImageUpload = ({ file, onSuccess, onError }) => {
+    const formData = new FormData();
+    formData.append('images', file.originFileObj || file);
+    formData.append('mainIndex', '0');
+    hotelApi
+      .uploadHotelImages(id, formData)
+      .then((res) => {
+        const newImages = res.images || [];
+        const first = newImages[0];
+        if (first) {
+          const fullUrl = (first.url || '').startsWith('http') ? first.url : `${BASE_URL}${first.url}`;
+          setImageFileList((prev) =>
+            prev.map((f) =>
+              f.uid === file.uid
+                ? { uid: String(first.id), id: first.id, name: file.name, status: 'done', url: fullUrl }
+                : f
+            )
+          );
+        }
+        onSuccess();
+      })
+      .catch((err) => {
+        message.error(err?.message || '上传失败');
+        onError(err);
+      });
+  };
+
+  // 提交审核 / 重新提交审核
   const handleSubmitForReview = async () => {
+    const isResubmit = hotelStatus === 'approved' || hotelStatus === 'rejected';
     Modal.confirm({
-      title: '确认提交审核',
-      content: '提交后，管理员将审核您的酒店信息。确认提交吗？',
+      title: isResubmit ? '确认重新提交审核' : '确认提交审核',
+      content: isResubmit
+        ? '修改后将重新进入审核流程，管理员需再次审核通过后才会展示。确认提交吗？'
+        : '提交后，管理员将审核您的酒店信息。确认提交吗？',
       okText: '确认提交',
       cancelText: '取消',
       onOk: async () => {
@@ -286,7 +311,7 @@ const HotelEdit = () => {
           if (response.success) {
             Modal.success({
               title: '提交成功',
-              content: response.message || '酒店已提交审核，请等待管理员审核',
+              content: response.message || (isResubmit ? '已重新提交审核，请等待管理员审核' : '酒店已提交审核，请等待管理员审核'),
               okText: '确定',
               onOk: () => {
                 // 跳转回列表页
@@ -448,7 +473,7 @@ const HotelEdit = () => {
                     <Form.Item
                       {...restField}
                       name={[name, 'base_price']}
-                      label="基础价格(元/晚)"
+                      label="价格(元/晚)"
                       rules={[{ required: true }]}
                     >
                       <InputNumber min={0} precision={2} placeholder="0.00" style={{ width: 140 }} />
@@ -456,11 +481,10 @@ const HotelEdit = () => {
 
                     <Form.Item
                       {...restField}
-                      name={[name, 'discount_rate']}
-                      label="折扣率"
-                      rules={[{ required: true }]}
+                      name={[name, 'area']}
+                      label="面积(㎡)"
                     >
-                      <InputNumber min={0} max={1} step={0.01} precision={2} placeholder="0.00" style={{ width: 120 }} />
+                      <InputNumber min={0} precision={0} placeholder="选填" style={{ width: 100 }} />
                     </Form.Item>
 
                     <Button
@@ -487,29 +511,24 @@ const HotelEdit = () => {
             )}
           </Form.List>
 
-          {/* 酒店图片（调试期间无需上传） */}
-          <Divider orientation="left">酒店图片（调试期间无需上传）</Divider>
-          <Form.Item
-            label="上传酒店图片"
-            rules={[]}
-          >
+          <Divider orientation="left">酒店图片</Divider>
+          <Form.Item label="酒店图片" rules={[]}>
             <Upload
-              name="file"
               listType="picture-card"
               fileList={imageFileList}
-              beforeUpload={beforeUpload}
               onChange={handleImageChange}
-              onPreview={handlePreview}
+              onRemove={handleImageRemove}
+              customRequest={handleImageUpload}
               multiple
-              action={() => {}}
+              accept="image/jpeg,image/jpg,image/png"
             >
               <div>
                 <PlusOutlined />
-                <div style={{ marginTop: 8 }}>调试期间无需上传</div>
+                <div style={{ marginTop: 8 }}>上传图片</div>
               </div>
             </Upload>
-            <Text type="secondary" style={{ marginTop: 8, display: 'block', color: '#999' }}>
-              调试期间暂不启用图片上传功能，正式环境将支持JPG/PNG/JPEG格式（单张≤2MB）
+            <Text type="secondary" style={{ marginTop: 8, display: 'block' }}>
+              支持 JPG/PNG，可删除已有图片或上传新图片
             </Text>
           </Form.Item>
 
@@ -519,15 +538,15 @@ const HotelEdit = () => {
               <Button type="primary" htmlType="submit" size="large" loading={loading}>
                 保存修改
               </Button>
-              {hotelStatus === 'draft' && (
-                <Button 
-                  type="primary" 
-                  size="large" 
+              {(hotelStatus === 'draft' || hotelStatus === 'approved' || hotelStatus === 'rejected') && (
+                <Button
+                  type="primary"
+                  size="large"
                   loading={submitting}
                   onClick={handleSubmitForReview}
                   style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
                 >
-                  提交审核
+                  {hotelStatus === 'draft' ? '提交审核' : '重新提交审核'}
                 </Button>
               )}
               <Button size="large" onClick={() => navigate('/merchant/hotel-list')}>

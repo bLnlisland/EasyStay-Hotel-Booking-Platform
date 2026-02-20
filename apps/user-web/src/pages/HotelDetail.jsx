@@ -59,17 +59,15 @@ export default function HotelDetail() {
                 id: 101,
                 name: "标准大床房",
                 base_price: mockHotel.min_price,
-                discount_rate: 1,
-                discounted_price: mockHotel.min_price,
+                area: 25,
                 max_guests: 2,
                 total_price: mockHotel.min_price,
               },
               {
                 id: 102,
                 name: "豪华双床房",
-                base_price: mockHotel.min_price + 120,
-                discount_rate: 0.9,
-                discounted_price: mockHotel.min_price + 80,
+                base_price: mockHotel.min_price + 80,
+                area: 35,
                 max_guests: 3,
                 total_price: mockHotel.min_price + 80,
               },
@@ -221,10 +219,9 @@ export default function HotelDetail() {
             <List.Item>
               <div style={{ width: "100%" }}>
                 <b>{r.name}</b>（最多 {r.max_guests} 人）
-                <div>基础价：{r.base_price}</div>
-                <div>折扣：{r.discount_rate}</div>
-                <div>折后价：{r.discounted_price}</div>
-                <div>总价：{r.total_price}</div>
+                {r.area != null && <div>面积：{r.area} ㎡</div>}
+                <div>价格：¥{r.base_price}/晚</div>
+                {r.total_price != null && <div>总价：¥{r.total_price}</div>}
               </div>
             </List.Item>
           )}

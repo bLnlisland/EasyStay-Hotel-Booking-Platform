@@ -68,6 +68,12 @@ Hotel.init({
         isIn: [['draft', 'pending', 'under_review', 'approved', 'rejected', 'offline', 'deleted']]
       }
     },
+  is_online: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    allowNull: false,
+    comment: '发布状态：true=已上线，false=已下线，仅审核通过后可操作'
+  },
   rejection_reason: {   // 拒绝原因，可选
     type: DataTypes.TEXT,
   },

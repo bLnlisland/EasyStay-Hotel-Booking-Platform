@@ -16,7 +16,7 @@ exports.listHotelImages = async (req, res, next) => {
       order: [['is_main', 'DESC'], ['order', 'ASC'], ['id', 'ASC']],
     });
 
-    res.json({ images });
+    res.json({ success: true, images });
   } catch (err) {
     next(err);
   }
@@ -49,7 +49,7 @@ exports.uploadHotelImages = async (req, res, next) => {
       )
     );
 
-    res.status(201).json({ message: 'Uploaded', images: rows });
+    res.status(201).json({ success: true, message: 'Uploaded', images: rows });
   } catch (err) {
     next(err);
   }
@@ -69,7 +69,7 @@ exports.deleteHotelImage = async (req, res, next) => {
     if (filename && fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
     await row.destroy();
-    res.json({ message: 'Deleted' });
+    res.json({ success: true, message: 'Deleted' });
   } catch (err) {
     next(err);
   }

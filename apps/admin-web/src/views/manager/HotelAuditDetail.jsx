@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Descriptions, Form, Select, Input, Button, Modal, Space, Tag, Divider } from 'antd';
+import { Card, Typography, Descriptions, Form, Select, Input, Button, Modal, Space, Tag, Divider, Image } from 'antd';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { hotelApi } from '../../utils/request';
+import { hotelApi, BASE_URL } from '../../utils/request';
 
 const { Title, Text } = Typography;
+
+const getImageUrl = (url) => (url && url.startsWith('http') ? url : `${BASE_URL || ''}${url || ''}`);
 
 // 状态枚举（全局统一）
 const AUDIT_STATUS = {
@@ -14,7 +16,8 @@ const AUDIT_STATUS = {
 
 const PUBLISH_STATUS = {
   ONLINE: 'online',
-  OFFLINE: 'offline'
+  OFFLINE: 'offline',
+  NA: 'na'  // 未审核通过，不适用上下线
 };
 
 // 状态文本映射
@@ -23,7 +26,8 @@ const STATUS_TEXT = {
   [AUDIT_STATUS.PASS]: '已通过',
   [AUDIT_STATUS.REJECT]: '不通过',
   [PUBLISH_STATUS.ONLINE]: '已上线',
-  [PUBLISH_STATUS.OFFLINE]: '已下线'
+  [PUBLISH_STATUS.OFFLINE]: '未上线',
+  [PUBLISH_STATUS.NA]: '—'
 };
 
 // 设施映射（含旧数据兼容；新数据与 API 一致，直接存中文）
@@ -69,9 +73,12 @@ const HotelAuditDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // 后端 status 映射为审核/发布状态
-  const statusToAudit = (s) => (s === 'approved' ? AUDIT_STATUS.PASS : s === 'rejected' ? AUDIT_STATUS.REJECT : AUDIT_STATUS.PENDING);
-  const statusToPublish = (s) => (s === 'offline' ? PUBLISH_STATUS.OFFLINE : s === 'approved' ? PUBLISH_STATUS.ONLINE : PUBLISH_STATUS.OFFLINE);
+  // 后端 status 映射为审核状态；发布状态仅审核通过后才有意义，否则显示 —
+  const statusToAudit = (s) => (s === 'approved' || s === 'offline' ? AUDIT_STATUS.PASS : s === 'rejected' ? AUDIT_STATUS.REJECT : AUDIT_STATUS.PENDING);
+  const toPublishStatus = (status, isOnline) => {
+    if (status === 'approved' || status === 'offline') return isOnline === true ? PUBLISH_STATUS.ONLINE : PUBLISH_STATUS.OFFLINE;
+    return PUBLISH_STATUS.NA;
+  };
 
   const loadHotelDetail = () => {
     setLoading(true);
@@ -89,6 +96,7 @@ const HotelAuditDetail = () => {
         const minPrice = rooms.length ? Math.min(...rooms.map(r => Number(r.base_price) || 0)) : null;
         const maxPrice = rooms.length ? Math.max(...rooms.map(r => Number(r.base_price) || 0)) : null;
         const priceRange = minPrice != null && maxPrice != null ? `${minPrice} - ${maxPrice} 元` : '未填写';
+        const images = Array.isArray(raw.images) ? raw.images : [];
         const formattedHotel = {
           id: raw.id,
           hotelName: raw.name_zh || '未知酒店',
@@ -99,14 +107,15 @@ const HotelAuditDetail = () => {
           roomCount: rooms.length ? String(rooms.length) : '未填写',
           priceRange,
           facilities,
+          images,
           createTime: (raw.created_at || raw.createdAt) ? new Date(raw.created_at || raw.createdAt).toLocaleString('zh-CN') : '未填写',
           auditStatus: statusToAudit(raw.status),
-          publishStatus: statusToPublish(raw.status),
+          publishStatus: toPublishStatus(raw.status, raw.is_online),
           rejectReason: raw.rejection_reason || raw.review_notes || ''
         };
         setHotelInfo(formattedHotel);
         form.setFieldsValue({
-          auditStatus: formattedHotel.auditStatus,
+          auditStatus: AUDIT_STATUS.PASS,
           rejectReason: formattedHotel.rejectReason
         });
       })
@@ -152,19 +161,19 @@ const HotelAuditDetail = () => {
     });
   };
 
-  // 管理员选择上线/下线（调用后端接口后刷新详情）
+  // 管理员选择上线/下线（调用发布接口，与审核分离）
   const handlePublishToggle = () => {
     if (!hotelInfo) return;
     const isOnline = hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE;
     const action = isOnline ? '下线' : '上线';
-    const newStatus = isOnline ? 'offline' : 'approved';
+    const newIsOnline = !isOnline;
     Modal.confirm({
       title: `确认${action}`,
       content: `确定要将酒店【${hotelInfo.hotelName}】${action}吗？`,
       okText: '确认',
       cancelText: '取消',
       onOk: () => {
-        hotelApi.updateAdminHotelStatus(id, { status: newStatus })
+        hotelApi.updateAdminHotelPublish(id, { is_online: newIsOnline })
           .then(() => {
             Modal.success({ content: `${action}成功` });
             loadHotelDetail();
@@ -243,7 +252,7 @@ const HotelAuditDetail = () => {
           </Descriptions.Item>
           <Descriptions.Item label="当前发布状态">
             <Tag color={hotelInfo.publishStatus === PUBLISH_STATUS.ONLINE ? 'blue' : 'default'}>
-              {STATUS_TEXT[hotelInfo.publishStatus]}
+              {STATUS_TEXT[hotelInfo.publishStatus] || '—'}
             </Tag>
           </Descriptions.Item>
           {hotelInfo.auditStatus === AUDIT_STATUS.REJECT && (
@@ -252,6 +261,28 @@ const HotelAuditDetail = () => {
             </Descriptions.Item>
           )}
         </Descriptions>
+
+        {/* 酒店图片 */}
+        <Divider />
+        <Title level={5} style={{ marginBottom: 16 }}>酒店图片</Title>
+        {hotelInfo.images && hotelInfo.images.length > 0 ? (
+          <Image.PreviewGroup>
+            <Space size={12} wrap style={{ marginBottom: 24 }}>
+              {hotelInfo.images.map((img) => (
+                <Image
+                  key={img.id}
+                  width={160}
+                  height={120}
+                  src={getImageUrl(img.url)}
+                  alt={img.alt_text || `酒店图片${img.id}`}
+                  style={{ objectFit: 'cover', borderRadius: 4 }}
+                />
+              ))}
+            </Space>
+          </Image.PreviewGroup>
+        ) : (
+          <Text type="secondary">暂无图片</Text>
+        )}
 
         <Divider />
 

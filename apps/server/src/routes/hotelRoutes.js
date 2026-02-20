@@ -20,6 +20,13 @@ router.get('/prices/ranges', HotelController.getPriceRanges);// 获取价格区�
 router.get('/facilities/options', HotelController.getFacilityOptions);// 获取设施选项（如：Wi-Fi、游泳池、停车场等）
 router.get('/recommended', HotelController.getRecommendedHotels);// 获取推荐酒店列表（可能基于评分、推荐算法等）
 
+// ==================== 管理员接口（仅 admin，必须放在 /:id 等通用路由之前，避免被误匹配） ====================
+router.get('/admin/all', auth, roleCheck('admin'), HotelController.getAllHotels);
+router.get('/admin/:id', auth, roleCheck('admin'), HotelController.getAdminHotelById);
+router.put('/admin/:id/status', auth, roleCheck('admin'), HotelController.updateHotelStatus);
+router.put('/admin/:id/publish', auth, roleCheck('admin'), HotelController.setHotelPublish);
+router.get('/admin/stats', auth, roleCheck('admin'), HotelController.getAdminStats);
+
 // ==================== 商户接口 ====================
 router.get('/my', auth, roleCheck('merchant', 'admin'), HotelController.getMyHotels);// 获取当前商户的酒店列表
 router.get('/:id', auth, roleCheck('merchant', 'admin'), HotelController.getMyHotelById);// 获取当前商户的单个酒店详情（含房型，用于编辑）
@@ -27,11 +34,6 @@ router.post('/', auth, roleCheck('merchant', 'admin'), HotelController.createHot
 router.put('/:id', auth, roleCheck('merchant', 'admin'), HotelController.updateHotel);// 更新酒店信息
 router.post('/:id/submit', auth, roleCheck('merchant', 'admin'), HotelController.submitForReview);// 提交酒店审核
 router.delete('/:id', auth, roleCheck('merchant', 'admin'), HotelController.deleteHotel);// 删除酒店
-// ==================== 管理员接口（仅 admin） ====================
-router.get('/admin/all', auth, roleCheck('admin'), HotelController.getAllHotels);
-router.get('/admin/:id', auth, roleCheck('admin'), HotelController.getAdminHotelById);
-router.put('/admin/:id/status', auth, roleCheck('admin'), HotelController.updateHotelStatus);
-router.get('/admin/stats', auth, roleCheck('admin'), HotelController.getAdminStats);
 
 module.exports = router;
 console.log('✅ hotelRoutes loaded, image routes mounted');

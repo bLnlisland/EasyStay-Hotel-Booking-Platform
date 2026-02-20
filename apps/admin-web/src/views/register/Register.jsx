@@ -19,9 +19,11 @@ const request = axios.create({
 const MerchantRegister = () => {
   const formRef = useRef(null);
   const [fileList, setFileList] = useState([]);
+  const [licenseImageUrl, setLicenseImageUrl] = useState(''); // 上传成功后后端返回的图片地址
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [role, setRole] = useState('merchant');
-  const [loading, setLoading] = useState(false); // 新增加载状态
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (values) => {
@@ -29,11 +31,11 @@ const MerchantRegister = () => {
       setLoading(true);
       // 1. 商户专属校验
       if (role === 'merchant') {
-        // 临时注释图片校验（后端无上传接口），先跑通注册流程
-        // if (fileList.length === 0) {
-        //   message.error('请上传营业执照照片！');
-        //   return;
-        // }
+        if (!licenseImageUrl) {
+          message.error('请上传营业执照照片！');
+          setLoading(false);
+          return;
+        }
         const creditCodeReg = /^[0-9A-HJ-NPQRTUWXY]{2}\d{6}[0-9A-HJ-NPQRTUWXY]{10}$/;
         if (!creditCodeReg.test(values.businessLicense)) {
           message.error('统一社会信用代码格式不正确！');
@@ -52,11 +54,11 @@ const MerchantRegister = () => {
       if (role === 'merchant') {
         requestData = {
           username: values.username,
-          email: values.email, // 新增：后端必填
+          email: values.email,
           password: values.password,
           business_name: values.merchantName,
           business_license: values.businessLicense,
-          license_image: 'https://via.placeholder.com/300', // 临时兜底，后端无上传接口
+          license_image: licenseImageUrl,
           contact_name: values.contactName,
           phone: values.phone,
           address: values.address || '',
@@ -102,20 +104,48 @@ const MerchantRegister = () => {
     const isImage = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
     if (!isImage) {
       message.error('只能上传 JPG/PNG/JPEG 格式的图片！');
-      return false;
+      return Upload.LIST_IGNORE;
     }
     const isLt2M = file.size / 1024 / 1024 < 2;
     if (!isLt2M) {
       message.error('图片大小不能超过 2MB！');
-      return false;
+      return Upload.LIST_IGNORE;
     }
-    // 临时阻止上传（后端无接口）
-    message.warning('图片上传接口暂未实现，已跳过上传！');
-    return false;
+    return true; // 通过校验，由 customRequest 实际上传
+  };
+
+  const customRequest = ({ file, onSuccess, onError }) => {
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('license', file);
+    // 不设置 Content-Type，让浏览器自动带 multipart boundary
+    request.post('/auth/upload/license', formData, { headers: { 'Content-Type': undefined } })
+      .then((res) => {
+        if (res.data && res.data.success && res.data.url) {
+          setLicenseImageUrl(res.data.url);
+          setFileList([{
+            uid: file.uid,
+            name: file.name,
+            status: 'done',
+            url: res.data.url.startsWith('http') ? res.data.url : (window.location.origin + res.data.url),
+          }]);
+          onSuccess(res.data);
+          message.success('上传成功');
+        } else {
+          onError(new Error(res.data?.message || '上传失败'));
+        }
+      })
+      .catch((err) => {
+        const msg = err.response?.data?.message || err.message || '上传失败';
+        message.error(msg);
+        onError(err);
+      })
+      .finally(() => setUploading(false));
   };
 
   const handleUploadChange = ({ fileList: newFileList }) => {
     setFileList(newFileList);
+    if (newFileList.length === 0) setLicenseImageUrl('');
   };
 
   return (
@@ -151,9 +181,10 @@ const MerchantRegister = () => {
             name="role"
             rules={[{ required: true, message: '请选择注册角色' }]}
           >
-            <Radio.Group value={role} onChange={(e) => {
+              <Radio.Group value={role} onChange={(e) => {
               setRole(e.target.value);
               setFileList([]);
+              setLicenseImageUrl('');
             }}>
               <Radio value="merchant">商户</Radio>
               <Radio value="admin">管理员</Radio>
@@ -251,20 +282,30 @@ const MerchantRegister = () => {
                 <Input placeholder="请输入18位统一社会信用代码" maxLength={18} showCount />
               </Form.Item>
 
-              {/* 临时注释图片上传的必填校验，保留组件但阻止上传 */}
-              <Form.Item label="执照照片（暂无需上传）">
+              <Form.Item
+                label="营业执照照片"
+                required
+                validateStatus={role === 'merchant' && !licenseImageUrl ? 'error' : ''}
+                help={role === 'merchant' && !licenseImageUrl ? '请上传营业执照照片（JPG/PNG，不超过 2MB）' : undefined}
+              >
                 <Upload
                   fileList={fileList}
                   beforeUpload={beforeUpload}
+                  customRequest={customRequest}
                   onChange={handleUploadChange}
-                  action="#" // 空地址，阻止上传
                   maxCount={1}
                   accept=".jpg,.jpeg,.png"
+                  listType="picture-card"
                 >
-                  <Button icon={<UploadOutlined />} type="primary" disabled>点击上传（暂未开放）</Button>
+                  {fileList.length >= 1 ? null : (
+                    <div>
+                      <UploadOutlined style={{ fontSize: 24 }} />
+                      <div style={{ marginTop: 8 }}>点击上传</div>
+                    </div>
+                  )}
                 </Upload>
                 <div className="upload-tip" style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-                  图片上传功能暂未实现，注册无需上传
+                  JPG/PNG/JPEG，单张不超过 2MB
                 </div>
               </Form.Item>
 
