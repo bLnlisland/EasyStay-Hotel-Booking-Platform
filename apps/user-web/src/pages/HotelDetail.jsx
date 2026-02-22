@@ -4,6 +4,7 @@ import { mockHotels } from "../mock/hotels";
 import { fetchHotelDetail } from "../api/hotels";
 import { Card, List, Tag, Carousel, Spin, Alert, DatePicker } from "antd";
 import { useHotelQueryParams } from "../hooks/useHotelQueryParams";
+import { FACILITY_NAME_BY_ID } from "../constants/facilities";
 
 const { RangePicker } = DatePicker;
 
@@ -192,7 +193,21 @@ export default function HotelDetail() {
         <div>城市：{hotel.city}</div>
         {"address" in hotel ? <div>地址：{hotel.address || "—"}</div> : null}
         <div>星级：{hotel.star_rating}</div>
+        
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>酒店设施</div>
 
+          {Array.isArray(hotel.facilities) && hotel.facilities.length ? (
+            hotel.facilities.map((id) => (
+              <Tag key={id}>
+                {FACILITY_NAME_BY_ID[id] || id}
+              </Tag>
+            ))
+          ) : (
+            <span style={{ opacity: 0.6 }}>—</span>
+          )}
+        </div>
+        
         {/* ✅ 日期选择：写回 URL，触发重新拉取 */}
         <div style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>选择入住 / 离店</div>

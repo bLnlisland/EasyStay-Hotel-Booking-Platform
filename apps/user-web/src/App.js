@@ -17,7 +17,7 @@ export default function App() {
         {/* 详情页 */}
         <Route path="/hotel/:id" element={<HotelDetail />} />
 
-        {/* 兼容旧路径（可选但强烈建议，防止你现有跳转全炸） */}
+        {/* 兼容旧路径*/}
         <Route path="/hotels" element={<Hotels />} />
         <Route path="/hotels/:id" element={<HotelDetail />} />
 
