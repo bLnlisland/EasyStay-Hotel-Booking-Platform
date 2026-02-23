@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Form, Input, Button, Upload, message, Card, Typography, Radio } from 'antd';
-import { UploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Card, Typography, Radio } from 'antd';
+import { CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import './Register.css';
@@ -18,12 +18,9 @@ const request = axios.create({
 
 const MerchantRegister = () => {
   const formRef = useRef(null);
-  const [fileList, setFileList] = useState([]);
-  const [licenseImageUrl, setLicenseImageUrl] = useState(''); // 上传成功后后端返回的图片地址
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [role, setRole] = useState('merchant');
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (values) => {
@@ -31,11 +28,6 @@ const MerchantRegister = () => {
       setLoading(true);
       // 1. 商户专属校验
       if (role === 'merchant') {
-        if (!licenseImageUrl) {
-          message.error('请上传营业执照照片！');
-          setLoading(false);
-          return;
-        }
         const creditCodeReg = /^[0-9A-HJ-NPQRTUWXY]{2}\d{6}[0-9A-HJ-NPQRTUWXY]{10}$/;
         if (!creditCodeReg.test(values.businessLicense)) {
           message.error('统一社会信用代码格式不正确！');
@@ -58,7 +50,6 @@ const MerchantRegister = () => {
           password: values.password,
           business_name: values.merchantName,
           business_license: values.businessLicense,
-          license_image: licenseImageUrl,
           contact_name: values.contactName,
           phone: values.phone,
           address: values.address || '',
@@ -100,60 +91,10 @@ const MerchantRegister = () => {
     }
   };
 
-  const beforeUpload = (file) => {
-    const isImage = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
-    if (!isImage) {
-      message.error('只能上传 JPG/PNG/JPEG 格式的图片！');
-      return Upload.LIST_IGNORE;
-    }
-    const isLt2M = file.size / 1024 / 1024 < 2;
-    if (!isLt2M) {
-      message.error('图片大小不能超过 2MB！');
-      return Upload.LIST_IGNORE;
-    }
-    return true; // 通过校验，由 customRequest 实际上传
-  };
-
-  const customRequest = ({ file, onSuccess, onError }) => {
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('license', file);
-    // 不设置 Content-Type，让浏览器自动带 multipart boundary
-    request.post('/auth/upload/license', formData, { headers: { 'Content-Type': undefined } })
-      .then((res) => {
-        if (res.data && res.data.success && res.data.url) {
-          setLicenseImageUrl(res.data.url);
-          setFileList([{
-            uid: file.uid,
-            name: file.name,
-            status: 'done',
-            url: res.data.url.startsWith('http') ? res.data.url : (window.location.origin + res.data.url),
-          }]);
-          onSuccess(res.data);
-          message.success('上传成功');
-        } else {
-          onError(new Error(res.data?.message || '上传失败'));
-        }
-      })
-      .catch((err) => {
-        const msg = err.response?.data?.message || err.message || '上传失败';
-        message.error(msg);
-        onError(err);
-      })
-      .finally(() => setUploading(false));
-  };
-
-  const handleUploadChange = ({ fileList: newFileList }) => {
-    setFileList(newFileList);
-    if (newFileList.length === 0) setLicenseImageUrl('');
-  };
-
   return (
-    <div className="merchant-register-container">
-      <Card className="register-card" hoverable bordered={false} style={{ maxWidth: '500px', margin: '80px auto', padding: '30px' }}>
-        <Title level={2} className="register-title" style={{ textAlign: 'center', marginBottom: '30px', color: '#1677ff' }}>
-          注册
-        </Title>
+    <div className="auth-page">
+      <Card className="auth-card" hoverable bordered={false} style={{ maxWidth: '500px' }}>
+        <Title level={2} className="auth-title">注册</Title>
         
         {registerSuccess && (
           <div className="success-tip" style={{ textAlign: 'center', marginBottom: '20px', color: '#52c41a' }}>
@@ -181,11 +122,7 @@ const MerchantRegister = () => {
             name="role"
             rules={[{ required: true, message: '请选择注册角色' }]}
           >
-              <Radio.Group value={role} onChange={(e) => {
-              setRole(e.target.value);
-              setFileList([]);
-              setLicenseImageUrl('');
-            }}>
+              <Radio.Group value={role} onChange={(e) => setRole(e.target.value)}>
               <Radio value="merchant">商户</Radio>
               <Radio value="admin">管理员</Radio>
             </Radio.Group>
@@ -283,33 +220,6 @@ const MerchantRegister = () => {
               </Form.Item>
 
               <Form.Item
-                label="营业执照照片"
-                required
-                validateStatus={role === 'merchant' && !licenseImageUrl ? 'error' : ''}
-                help={role === 'merchant' && !licenseImageUrl ? '请上传营业执照照片（JPG/PNG，不超过 2MB）' : undefined}
-              >
-                <Upload
-                  fileList={fileList}
-                  beforeUpload={beforeUpload}
-                  customRequest={customRequest}
-                  onChange={handleUploadChange}
-                  maxCount={1}
-                  accept=".jpg,.jpeg,.png"
-                  listType="picture-card"
-                >
-                  {fileList.length >= 1 ? null : (
-                    <div>
-                      <UploadOutlined style={{ fontSize: 24 }} />
-                      <div style={{ marginTop: 8 }}>点击上传</div>
-                    </div>
-                  )}
-                </Upload>
-                <div className="upload-tip" style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-                  JPG/PNG/JPEG，单张不超过 2MB
-                </div>
-              </Form.Item>
-
-              <Form.Item
                 label="经营地址"
                 name="address"
                 rules={[{ max: 100 },
@@ -360,7 +270,9 @@ const MerchantRegister = () => {
               type="primary" 
               htmlType="submit" 
               size="large" 
-              style={{ width: '100%', backgroundColor: '#1677ff' }}
+              block
+              className="app-btn-primary"
+              style={{ height: 44 }}
               loading={loading}
             >
               提交注册
@@ -369,7 +281,7 @@ const MerchantRegister = () => {
 
           {/* 返回登录 */}
           <Form.Item style={{ textAlign: 'center', marginBottom: 0 }}>
-            <Link to="/login" style={{ color: '#1677ff', fontSize: '14px' }}>
+            <Link to="/login" style={{ color: 'var(--primary)', fontSize: 14 }}>
               已有账号？返回登录
             </Link>
           </Form.Item>

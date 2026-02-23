@@ -199,32 +199,44 @@ const HotelAuditDetail = () => {
 
   // 加载中/错误状态
   if (loading) {
-    return <div style={{ padding: '50px', textAlign: 'center' }}>加载酒店详情中...</div>;
+    return (
+      <div className="app-page">
+        <Card className="app-card" style={{ padding: 50, textAlign: 'center' }}>加载酒店详情中...</Card>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
-        <Text type="danger">{error}</Text>
-        <div style={{ marginTop: 20 }}>
-          <Button onClick={() => navigate('/manager/hotel-audit')}>返回审核列表</Button>
-        </div>
+      <div className="app-page">
+        <Card className="app-card" style={{ padding: 50, textAlign: 'center' }}>
+          <Text type="danger">{error}</Text>
+          <div style={{ marginTop: 20 }}>
+            <Button className="app-btn-default" onClick={() => navigate('/manager/hotel-audit')}>返回审核列表</Button>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* 顶部导航：返回列表页 */}
-      <div style={{ marginBottom: 20 }}>
-        <Button onClick={() => navigate('/manager/hotel-audit')} type="default">
+    <div className="app-page">
+      <div className="app-page-header" style={{ marginBottom: 20 }}>
+        <div className="app-page-title-wrap">
+          <div className="app-page-icon">📋</div>
+          <div>
+            <h1 className="app-page-title">酒店审核详情</h1>
+            <p className="app-page-subtitle">{hotelInfo.hotelName}</p>
+          </div>
+        </div>
+        <Button className="app-btn-default" onClick={() => navigate('/manager/hotel-audit')}>
           ← 返回审核列表
         </Button>
       </div>
 
-      <Card bordered={false}>
-        <Title level={4} style={{ marginBottom: 20 }}>
-          酒店审核详情 - {hotelInfo.hotelName}
+      <Card className="app-card" bordered={false} style={{ padding: '24px' }}>
+        <Title level={5} style={{ marginBottom: 20, color: 'var(--text-title)' }}>
+          基础信息与审核
         </Title>
 
         {/* 酒店基础信息（实时同步本地存储） */}
@@ -329,8 +341,8 @@ const HotelAuditDetail = () => {
 
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">提交审核结果</Button>
-              <Button onClick={() => navigate('/manager/hotel-audit')}>取消</Button>
+              <Button type="primary" htmlType="submit" className="app-btn-primary">提交审核结果</Button>
+              <Button className="app-btn-default" onClick={() => navigate('/manager/hotel-audit')}>取消</Button>
               <Link to="/manager/hotel-audit">
                 <Button type="text">返回审核列表</Button>
               </Link>

@@ -2,11 +2,18 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 
-// 根布局：提供 Ant Design 上下文，确保内容区域有最小高度
+// 统一主题：主色与组件圆角
+const theme = {
+  token: {
+    colorPrimary: '#1677ff',
+    borderRadius: 8,
+  },
+};
+
 const RootLayout = () => {
   return (
-    <ConfigProvider>
-      <div style={{ minHeight: '100vh', width: '100%' }}>
+    <ConfigProvider theme={theme}>
+      <div className="root-layout" style={{ minHeight: '100vh', width: '100%' }}>
         <Outlet />
       </div>
     </ConfigProvider>

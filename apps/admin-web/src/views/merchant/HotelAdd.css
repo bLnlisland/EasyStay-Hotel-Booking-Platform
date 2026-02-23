@@ -1,15 +1,21 @@
-.hotel-add-container {
-  max-width: 1200px;
-  margin: 20px auto;
-  padding: 0 20px;
+.hotel-add-container .ant-card {
+  padding: 24px;
 }
 
-.ant-upload-picture-card-wrapper {
+.hotel-add-container .ant-upload-picture-card-wrapper {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
 }
 
-.ant-form-item {
+.hotel-add-container .ant-form-item {
   margin-bottom: 16px;
+}
+
+.hotel-add-container .ant-divider-horizontal.ant-divider-with-text-left {
+  margin: 24px 0 16px;
+}
+
+.hotel-add-container .ant-divider-horizontal.ant-divider-with-text-left:first-child {
+  margin-top: 0;
 }

@@ -68,40 +68,26 @@ const HotelListWrapper = () => <PrivateRoute requiredRole="merchant"><HotelList 
 const HotelAddWrapper = () => <PrivateRoute requiredRole="merchant"><HotelAdd /></PrivateRoute>;
 const HotelEditWrapper = () => <PrivateRoute requiredRole="merchant"><HotelEdit /></PrivateRoute>;
 
-// 🔧 通用404页面（优化样式 + 路由跳转）
+// 🔧 通用404页面（与全局风格统一）
 const ErrorPage = () => {
-  const navigate = useNavigate(); // 改用react-router跳转，避免刷新
+  const navigate = useNavigate();
 
   return (
-    <div style={{ 
-      padding: '40px 20px', 
-      textAlign: 'center', 
-      marginTop: '80px',
-      maxWidth: '600px',
-      marginLeft: 'auto',
-      marginRight: 'auto'
-    }}>
-      <h1 style={{ color: '#ff4d4f', fontSize: '48px', marginBottom: '20px' }}>404</h1>
-      <p style={{ color: '#666', fontSize: '16px', marginBottom: '30px', lineHeight: '1.6' }}>
-        您访问的页面不存在，请检查地址是否正确，或返回首页继续操作
-      </p>
-      <button 
-        style={{ 
-          padding: '10px 24px', 
-          background: '#1890ff', 
-          color: 'white', 
-          border: 'none', 
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          transition: 'background 0.2s'
-        }}
-        onClick={() => navigate('/')} // 改用react-router的navigate，更符合单页应用
-        onMouseEnter={(e) => e.target.style.background = '#40a9ff'}
-        onMouseLeave={(e) => e.target.style.background = '#1890ff'}
-      >
-        返回首页
-      </button>
+    <div className="auth-page">
+      <div className="app-card auth-card" style={{ maxWidth: 440, padding: '48px 40px', textAlign: 'center' }}>
+        <h1 style={{ color: 'var(--text-secondary)', fontSize: 72, marginBottom: 16, fontWeight: 700 }}>404</h1>
+        <p style={{ color: 'var(--text-body)', fontSize: 16, marginBottom: 32, lineHeight: 1.6 }}>
+          您访问的页面不存在，请检查地址是否正确，或返回首页继续操作
+        </p>
+        <button
+          type="button"
+          className="app-btn-primary"
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate('/')}
+        >
+          返回首页
+        </button>
+      </div>
     </div>
   );
 };
@@ -158,17 +144,18 @@ function AppRouter() {
     <RouterProvider 
       router={router} 
       fallbackElement={
-        <div style={{ 
+        <div style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           height: '100vh',
-          fontSize: '18px',
-          color: '#1890ff'
+          fontSize: 18,
+          color: 'var(--primary)',
+          background: 'var(--bg-page)'
         }}>
           <div>
-            <div style={{ marginBottom: '10px' }}>🚀 系统加载中...</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>请稍候</div>
+            <div style={{ marginBottom: 10 }}>🚀 系统加载中...</div>
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>请稍候</div>
           </div>
         </div>
       } 

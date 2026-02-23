@@ -1,74 +1,59 @@
 import React from 'react';
-import { Button, Modal } from 'antd'; // 引入Modal用于二次确认
+import { Button, Modal, Card } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
+import { AuditOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const ManagerHome = () => {
-  // 1. 顶层调用useNavigate，符合Hooks规则
   const navigate = useNavigate();
 
-  // 2. 管理员退出登录逻辑（带二次确认+保留本地数据）
   const handleLogout = () => {
-    // 二次确认弹窗
     Modal.confirm({
       title: '确认退出登录',
       content: '确定要退出管理员账号吗？系统所有数据会被保留，再次登录即可继续操作',
       okText: '确认退出',
       cancelText: '取消',
-      // 确认退出的逻辑
       onOk: () => {
         try {
-          // 只清除登录状态数据（保留业务数据）
           localStorage.removeItem('role');
           localStorage.removeItem('currentUser');
           localStorage.removeItem('hotel_token');
-
-          // 跳转到登录页，replace防止回退
           navigate('/', { replace: true });
-          // 退出成功提示
-          Modal.success({
-            content: '退出登录成功！系统数据已保留',
-            okText: '确定'
-          });
+          Modal.success({ content: '退出登录成功！系统数据已保留', okText: '确定' });
         } catch (error) {
-          // 容错处理：跳转失败时用window.location兜底
           console.error('管理员退出登录失败：', error);
           window.location.href = '/';
         }
       },
-      // 取消退出的回调（可选，可留空）
       onCancel: () => {
-        Modal.info({
-          content: '已取消退出登录',
-          okText: '确定'
-        });
+        Modal.info({ content: '已取消退出登录', okText: '确定' });
       }
     });
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1>酒店预订系统-管理端</h1>
-      <p>欢迎回来，您可以在这里审核商户提交的酒店信息</p>
+    <div className="app-page">
+      <div className="app-page-header">
+        <div className="app-page-title-wrap">
+          <div className="app-page-icon">📋</div>
+          <div>
+            <h1 className="app-page-title">酒店预订系统 · 管理端</h1>
+            <p className="app-page-subtitle">欢迎回来，您可以在这里审核商户提交的酒店信息</p>
+          </div>
+        </div>
+      </div>
 
-      {/* 跳转到审核列表按钮 */}
-      <div style={{ marginTop: '30px' }}>
-        <Link to="/manager/hotel-audit">
-          <Button type="primary" size="large">
-            进入酒店审核列表
+      <Card className="app-card" bordered={false} style={{ padding: '28px 24px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <Link to="/manager/hotel-audit">
+            <Button type="primary" size="large" className="app-btn-primary" icon={<AuditOutlined />}>
+              进入酒店审核列表
+            </Button>
+          </Link>
+          <Button size="large" danger icon={<LogoutOutlined />} onClick={handleLogout}>
+            退出登录
           </Button>
-        </Link>
-      </div>
-
-      {/* 退出登录按钮（危险样式+二次确认） */}
-      <div style={{ marginTop: '16px' }}>
-        <Button 
-          onClick={handleLogout} 
-          size="large"
-          danger // 危险按钮样式，提示敏感操作
-        >
-          退出登录
-        </Button>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 };

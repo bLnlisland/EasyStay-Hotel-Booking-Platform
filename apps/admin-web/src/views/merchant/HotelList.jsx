@@ -321,26 +321,26 @@ const HotelList = () => {
   ];
 
   return (
-    <div className="hotel-list-page">
-      <div className="page-header">
-        <div className="page-title-wrap">
-          <div className="page-icon">🏨</div>
+    <div className="app-page hotel-list-page">
+      <div className="app-page-header">
+        <div className="app-page-title-wrap">
+          <div className="app-page-icon">🏨</div>
           <div>
-            <h1 className="page-title">我的酒店列表</h1>
-            <p className="page-subtitle">管理您名下的酒店信息，提交审核后将在平台展示</p>
+            <h1 className="app-page-title">我的酒店列表</h1>
+            <p className="app-page-subtitle">管理您名下的酒店信息，提交审核后将在平台展示</p>
           </div>
         </div>
         <div className="header-actions">
           <Button
             type="primary"
-            className="btn-add"
+            className="app-btn-primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/merchant/hotel-add')}
           >
             新增酒店
           </Button>
           <Button
-            className="btn-back"
+            className="app-btn-default"
             icon={<HomeOutlined />}
             onClick={() => navigate('/merchant/home')}
           >
@@ -349,7 +349,7 @@ const HotelList = () => {
         </div>
       </div>
 
-      <Card className="list-card" bordered={false}>
+      <Card className="app-card list-card" bordered={false}>
         <Table
           columns={columns}
           dataSource={data}

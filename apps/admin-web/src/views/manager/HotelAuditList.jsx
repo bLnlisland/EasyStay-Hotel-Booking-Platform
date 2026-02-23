@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tag, Space, Card, Typography, Modal } from 'antd';
+import { HomeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { hotelApi } from '../../utils/request';
+import './HotelAuditList.css';
 
 const { Title } = Typography;
 
@@ -158,37 +160,43 @@ const HotelAuditList = () => {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      <Card bordered={false} style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={3}>酒店审核列表</Title>
-          {/* Link返回管理员首页 */}
-          <Button onClick={() => navigate('/manager/home')}>返回管理员首页</Button>
+    <div className="app-page" style={{ maxWidth: 1400 }}>
+      <div className="app-page-header">
+        <div className="app-page-title-wrap">
+          <div className="app-page-icon">📋</div>
+          <div>
+            <h1 className="app-page-title">酒店审核列表</h1>
+            <p className="app-page-subtitle">审核商户提交的酒店信息，通过后可上线展示</p>
+          </div>
         </div>
-      </Card>
+        <Button className="app-btn-default" icon={<HomeOutlined />} onClick={() => navigate('/manager/home')}>
+          返回管理员首页
+        </Button>
+      </div>
 
-      {/* 空列表提示（高容错） */}
       {hotelList.length === 0 ? (
-        <Card bordered={false} style={{ textAlign: 'center', padding: '50px 0' }}>
+        <Card className="app-card" bordered={false} style={{ textAlign: 'center', padding: '50px 24px' }}>
           <Typography.Text type="secondary">暂无商户提交的酒店信息，请等待商户录入...</Typography.Text>
         </Card>
       ) : (
-        <Table
-          columns={columns}
-          dataSource={hotelList}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            current: pagination.page,
-            pageSize: pagination.limit,
-            total: pagination.total,
-            showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`,
-            onChange: (p, size) => loadFromApi(p, size || pagination.limit)
-          }}
-          bordered
-          scroll={{ x: 'max-content' }}
-        />
+        <Card className="app-card" bordered={false} style={{ overflow: 'hidden' }}>
+          <Table
+            columns={columns}
+            dataSource={hotelList}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: pagination.page,
+              pageSize: pagination.limit,
+              total: pagination.total,
+              showSizeChanger: true,
+              showTotal: (t) => `共 ${t} 条`,
+              onChange: (p, size) => loadFromApi(p, size || pagination.limit)
+            }}
+            bordered={false}
+            scroll={{ x: 'max-content' }}
+          />
+        </Card>
       )}
     </div>
   );
