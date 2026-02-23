@@ -6,10 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { Carousel } from "antd";
 import FacilitiesPicker from "../components/FacilitiesPicker";
 import { fetchFacilityOptions } from "../api/facilities";
-
 import { useHotelQuery } from "../hooks/useHotelQuery";
 import { useAmapCity } from "../hooks/useAmapCity";
-
+import { getHotelCover } from "../utils/hotelImages";
 
 const FALLBACK_BANNERS = [
   { id: 1, title: "城市中心 · 高评分酒店", image: "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0" },
@@ -33,9 +32,11 @@ export default function Search() {
   // 设施选项
   useEffect(() => {
     fetchFacilityOptions().then((opts) => {
-      setFacilityOptions(opts || []);
+      const safe = opts || [];
+      setFacilityOptions(safe);
+
       // 可选：把 URL 里非法设施过滤掉（保持稳定）
-      const idSet = new Set((opts || []).map((f) => f.id));
+      const idSet = new Set(safe.map((f) => f.id));
       if (query.facilities?.length) {
         const filtered = query.facilities.filter((x) => idSet.has(x));
         if (filtered.length !== query.facilities.length) updateQuery({ facilities: filtered });
@@ -47,41 +48,50 @@ export default function Search() {
   // 推荐 banner
   useEffect(() => {
     const baseURL = http?.defaults?.baseURL || "http://localhost:3000/api";
-    const origin = String(baseURL).replace(/\/api\/?$/, "");
-
-    const toPublicUrl = (u) => {
-      if (!u) return "";
-      if (/^https?:\/\//i.test(u)) return u;
-      return `${origin}${u.startsWith("/") ? "" : "/"}${u}`;
-    };
 
     http
-      .get("/hotels/recommended")
-      .then((res) => {
-        const payload = res?.data ?? res;
-        const list = payload?.hotels || payload?.data?.hotels || [];
+    .get("/hotels/recommended")
+    .then((res) => {
+      const payload = res?.data ?? res;
+      const list = payload?.hotels || payload?.data?.hotels || [];
 
-        const mapped = list.map((h) => ({
-          id: h.id,
-          title: h.name_zh || h.name_en || "推荐酒店",
-          image: toPublicUrl(h.image || h.images?.[0]?.url) || "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0",
-        }));
+      const mapped = list.map((h) => ({
+        id: h.id,
+        title: h.name_zh || h.name_en || "推荐酒店",
+        image: getHotelCover(h), // ✅ 没上传就用本地默认图
+      }));
 
-        setBanners(mapped);
-      })
-      .catch((err) => {
-        console.error("[recommended] request error:", err);
-        setBanners([]);
-      });
+      setBanners(mapped);
+    })
+    .catch((err) => {
+      console.error("[recommended] request error:", err);
+      setBanners([]);
+    });
   }, []);
 
   const dateValue = useMemo(() => {
-    // 你用的是 antd + dayjs；RangePicker 不传 value 也行（这里不强绑）
+    // 你用的是 antd + dayjs；RangePicker 不传 value 也行（这里先不强绑）
     return null;
   }, []);
 
-  console.log("[URL facilities raw]", new URLSearchParams(window.location.search).get("facilities"));
-  console.log("[query.facilities parsed]", query.facilities);
+  // ✅ 价格区间回显（按你要的：0-300 / 301-600 / 601-900 / 901+）
+  const priceBucketValue = useMemo(() => {
+    const min = query.min_price;
+    const max = query.max_price;
+
+    if (min == null && max == null) return undefined;
+
+    // 901+ 约定：min=901, max=null
+    if (min === 901 && (max == null || max === undefined)) return "901+";
+
+    if (min === 0 && max === 300) return "0-300";
+    if (min === 301 && max === 600) return "301-600";
+    if (min === 601 && max === 900) return "601-900";
+
+    // 其他情况（比如用户从别的页面带了非标准区间），不回显档位，避免乱
+    return undefined;
+  }, [query.min_price, query.max_price]);
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -204,6 +214,8 @@ export default function Search() {
                 value={query.star_rating ?? undefined}
                 onChange={(v) => updateQuery({ star_rating: v ?? null })}
                 options={[
+                  { value: 1, label: "一星" },
+                  { value: 2, label: "二星" },
                   { value: 3, label: "三星" },
                   { value: 4, label: "四星" },
                   { value: 5, label: "五星" },
@@ -216,16 +228,19 @@ export default function Search() {
                 style={{ width: "100%" }}
                 placeholder="价格区间"
                 allowClear
+                value={priceBucketValue}
                 onChange={(val) => {
                   if (!val) return updateQuery({ min_price: null, max_price: null });
                   if (val === "0-300") return updateQuery({ min_price: 0, max_price: 300 });
-                  if (val === "300-600") return updateQuery({ min_price: 300, max_price: 600 });
-                  if (val === "600+") return updateQuery({ min_price: 600, max_price: null });
+                  if (val === "301-600") return updateQuery({ min_price: 301, max_price: 600 });
+                  if (val === "601-900") return updateQuery({ min_price: 601, max_price: 900 });
+                  if (val === "901+") return updateQuery({ min_price: 901, max_price: null });
                 }}
                 options={[
                   { value: "0-300", label: "¥0-300" },
-                  { value: "300-600", label: "¥300-600" },
-                  { value: "600+", label: "¥600+" },
+                  { value: "301-600", label: "¥301-600" },
+                  { value: "601-900", label: "¥601-900" },
+                  { value: "901+", label: "¥901+" },
                 ]}
               />
             </Col>

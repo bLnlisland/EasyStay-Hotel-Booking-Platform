@@ -5,26 +5,21 @@ import { fetchHotelDetail } from "../api/hotels";
 import { Card, List, Tag, Carousel, Spin, Alert, DatePicker } from "antd";
 import { useHotelQueryParams } from "../hooks/useHotelQueryParams";
 import { FACILITY_NAME_BY_ID } from "../constants/facilities";
+import { getHotelCarouselImages } from "../utils/hotelImages";
 
 const { RangePicker } = DatePicker;
 
-function getFallbackImages(hotelId) {
-  const base = "https://source.unsplash.com/1200x700/?hotel,room,lobby";
-  const s = Number(hotelId) || 1;
-  return [`${base}&sig=${s}`, `${base}&sig=${s + 11}`, `${base}&sig=${s + 22}`];
-}
-
-// ✅ 小提示：Vite 通常要 VITE_ 前缀
+// 小提示：Vite 通常要 VITE_ 前缀（但答辩前别乱改 env，按你项目实际为准）
 const USE_MOCK = import.meta.env.APP_USE_MOCK === "true";
 
 export default function HotelDetail() {
   const { id } = useParams();
 
-  // ✅ 统一从 URL 读写参数
+  // 统一从 URL 读写参数
   const { query, dateValue, setDates, toQueryString } = useHotelQueryParams({ guests: 2 });
   const { check_in, check_out, guests } = query;
 
-  // ✅ 返回列表：带着当前 query 回 /list
+  // 返回列表：带着当前 query 回 /list
   const backToList = toQueryString() ? `/list?${toQueryString()}` : "/list";
 
   const [loading, setLoading] = useState(false);
@@ -55,6 +50,7 @@ export default function HotelDetail() {
             address: mockHotel.address,
             star_rating: mockHotel.star_rating,
             images: mockHotel.images,
+            facilities: mockHotel.facilities || [], // ✅ mock 也带设施更像真数据
             room_types: [
               {
                 id: 101,
@@ -103,21 +99,11 @@ export default function HotelDetail() {
     return () => {
       alive = false;
     };
-  }, [id, guests, mockHotel]);
+  }, [id, guests, check_in, check_out, mockHotel]); // ✅ 补齐依赖，日期变更会刷新
 
   const images = useMemo(() => {
-    if (!hotel) return getFallbackImages(id);
-
-    const raw = hotel.images;
-    if (Array.isArray(raw) && raw.length) {
-      const urls = raw
-        .map((x) => (typeof x === "string" ? x : x?.url))
-        .filter(Boolean);
-      if (urls.length) return urls;
-    }
-
-    return getFallbackImages(hotel.id || id);
-  }, [hotel, id]);
+    return getHotelCarouselImages(hotel, { count: 3 });
+  }, [hotel]);
 
   if (loading) {
     return (
@@ -193,22 +179,22 @@ export default function HotelDetail() {
         <div>城市：{hotel.city}</div>
         {"address" in hotel ? <div>地址：{hotel.address || "—"}</div> : null}
         <div>星级：{hotel.star_rating}</div>
-        
+
         <div style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>酒店设施</div>
 
           {Array.isArray(hotel.facilities) && hotel.facilities.length ? (
-            hotel.facilities.map((id) => (
-              <Tag key={id}>
-                {FACILITY_NAME_BY_ID[id] || id}
-              </Tag>
-            ))
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {hotel.facilities.map((id) => (
+                <Tag key={id}>{FACILITY_NAME_BY_ID[id] || id}</Tag>
+              ))}
+            </div>
           ) : (
             <span style={{ opacity: 0.6 }}>—</span>
           )}
         </div>
-        
-        {/* ✅ 日期选择：写回 URL，触发重新拉取 */}
+
+        {/* 日期选择：写回 URL，触发重新拉取 */}
         <div style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>选择入住 / 离店</div>
           <RangePicker value={dateValue} onChange={setDates} allowClear style={{ width: "100%" }} />
