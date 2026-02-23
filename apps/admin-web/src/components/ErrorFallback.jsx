@@ -6,38 +6,29 @@ const ErrorFallback = () => {
   const error = useRouteError();
   console.error('Route error:', error);
   return (
-    <div style={{ 
-      padding: '40px', 
-      maxWidth: '800px', 
-      margin: '50px auto',
-      background: '#fff2f0',
-      border: '1px solid #ffccc7',
-      borderRadius: 8
-    }}>
-      <h1 style={{ color: '#cf1322', marginBottom: 16 }}>页面加载出错</h1>
-      <pre style={{ 
-        background: '#fff', 
-        padding: 16, 
-        overflow: 'auto', 
-        fontSize: 12,
-        color: '#333'
-      }}>
-        {error?.message || String(error)}
-      </pre>
-      <button
-        onClick={() => window.location.href = '/'}
-        style={{
-          marginTop: 16,
-          padding: '8px 16px',
-          background: '#1890ff',
-          color: 'white',
-          border: 'none',
-          borderRadius: 4,
-          cursor: 'pointer'
-        }}
-      >
-        返回首页
-      </button>
+    <div className="auth-page">
+      <div className="app-card auth-card" style={{ maxWidth: 560, padding: 32 }}>
+        <h1 style={{ color: 'var(--text-title)', marginBottom: 16, fontSize: 20 }}>页面加载出错</h1>
+        <pre style={{
+          background: 'var(--bg-page)',
+          padding: 16,
+          overflow: 'auto',
+          fontSize: 12,
+          color: 'var(--text-body)',
+          borderRadius: 8,
+          border: '1px solid var(--border)'
+        }}>
+          {error?.message || String(error)}
+        </pre>
+        <button
+          type="button"
+          className="app-btn-primary"
+          style={{ marginTop: 20, cursor: 'pointer' }}
+          onClick={() => window.location.href = '/'}
+        >
+          返回首页
+        </button>
+      </div>
     </div>
   );
 };

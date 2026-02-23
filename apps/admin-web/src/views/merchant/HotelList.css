@@ -1,54 +1,4 @@
-/* 我的酒店列表 - 现代风格 */
-
-.hotel-list-page {
-  min-height: 100vh;
-  background: linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%);
-  padding: 24px 20px 40px;
-}
-
-.hotel-list-page .page-header {
-  max-width: 1200px;
-  margin: 0 auto 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.hotel-list-page .page-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.hotel-list-page .page-title-wrap .page-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 22px;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
-}
-
-.hotel-list-page .page-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
-  letter-spacing: -0.02em;
-}
-
-.hotel-list-page .page-subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #64748b;
-  font-weight: 400;
-}
+/* 我的酒店列表（继承 app-page / app-card，仅覆盖列表特有） */
 
 .hotel-list-page .header-actions {
   display: flex;
@@ -56,48 +6,8 @@
   flex-wrap: wrap;
 }
 
-.hotel-list-page .btn-add {
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
-  border: none;
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-}
-
-.hotel-list-page .btn-add:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.4);
-}
-
-.hotel-list-page .btn-back {
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-weight: 500;
-  font-size: 14px;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-}
-
-.hotel-list-page .btn-back:hover {
-  color: #0ea5e9;
-  border-color: #0ea5e9;
-  background: #f0f9ff;
-}
-
-/* 卡片容器 */
 .hotel-list-page .list-card {
-  max-width: 1200px;
-  margin: 0 auto;
-  border-radius: 16px;
-  border: none;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  background: #fff;
 }
 
 /* 表格样式 */
@@ -193,15 +103,15 @@
 }
 
 .hotel-list-page .action-btn-edit {
-  color: #0ea5e9;
-  border: 1px solid #7dd3fc;
-  background: #f0f9ff;
+  color: var(--primary);
+  border: 1px solid #91caff;
+  background: var(--primary-light);
 }
 
 .hotel-list-page .action-btn-edit:hover {
   color: #fff;
-  background: #0ea5e9;
-  border-color: #0ea5e9;
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 .hotel-list-page .action-btn-submit {
@@ -234,7 +144,7 @@
 }
 
 .hotel-list-page .list-card .ant-pagination-item-active {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+  background: linear-gradient(135deg, var(--primary) 0%, #0958d9 100%) !important;
   border-color: transparent !important;
 }
 

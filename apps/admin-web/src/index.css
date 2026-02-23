@@ -1,3 +1,20 @@
+/* ========== 全局设计变量（统一风格） ========== */
+:root {
+  --primary: #1677ff;
+  --primary-hover: #4096ff;
+  --primary-light: #e6f4ff;
+  --bg-page: #f5f7fa;
+  --bg-card: #ffffff;
+  --text-title: #1e293b;
+  --text-body: #334155;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
 html, body, #root {
   margin: 0;
   min-height: 100%;
@@ -10,9 +27,131 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-page);
+  color: var(--text-body);
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* ========== 通用页面布局（登录/注册等居中卡片） ========== */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 20px 40px;
+  box-sizing: border-box;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 40px 36px;
+  border-radius: var(--radius-lg);
+  border: none;
+  box-shadow: var(--shadow-card);
+  background: var(--bg-card);
+}
+
+.auth-title {
+  text-align: center;
+  margin-bottom: 28px !important;
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+  font-size: 22px !important;
+}
+
+/* ========== 通用内容区（后台页面） ========== */
+.app-page {
+  min-height: 100vh;
+  padding: 24px 20px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.app-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.app-page-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-page-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--primary) 0%, #0958d9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  box-shadow: 0 4px 14px rgba(22, 119, 255, 0.35);
+}
+
+.app-page-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-title);
+  letter-spacing: -0.02em;
+}
+
+.app-page-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.app-card {
+  border-radius: var(--radius-lg);
+  border: none;
+  box-shadow: var(--shadow-card);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+/* 主按钮统一 */
+.app-btn-primary {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  background: linear-gradient(135deg, var(--primary) 0%, #0958d9 100%);
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.25);
+}
+
+.app-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(22, 119, 255, 0.4);
+}
+
+.app-btn-default {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.app-btn-default:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-light);
 }

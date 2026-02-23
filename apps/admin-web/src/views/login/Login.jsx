@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message } from 'antd';
+import { Form, Input, Button, message, Card, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { authApi } from '../../utils/request';
+
+const { Title } = Typography;
 
 const Login = React.memo(() => {
   const [loading, setLoading] = useState(false);
@@ -34,7 +36,6 @@ const Login = React.memo(() => {
 
       const path = role === 'admin' ? '/manager/home' : '/merchant/home';
       message.success('登录成功！正在跳转…');
-      // 延迟跳转，让用户看到“登录成功”提示后再整页跳转
       setTimeout(() => {
         window.location.replace(path);
       }, 800);
@@ -48,82 +49,69 @@ const Login = React.memo(() => {
   };
 
   return (
-    <div style={{ 
-      maxWidth: '380px', 
-      margin: '80px auto', 
-      padding: '30px', 
-      border: '1px solid #e8e8e8', 
-      borderRadius: '12px',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)'
-    }}>
-      <h2 style={{ 
-        textAlign: 'center', 
-        marginBottom: '30px', 
-        color: '#1677ff',
-        fontWeight: 600 
-      }}>统一登录</h2>
+    <div className="auth-page">
+      <Card className="auth-card" bordered={false}>
+        <Title level={2} className="auth-title">统一登录</Title>
 
-      <Form
-        name="system-login"
-        autoComplete="off"
-        onFinish={handleSubmit}
-        labelCol={{ span: 6 }}
-        wrapperCol={{ span: 18 }}
-      >
-        <Form.Item
-          name="username"
-          label="账号"
-          rules={[{ required: true, message: '请输入登录账号' }]}
+        <Form
+          name="system-login"
+          autoComplete="off"
+          onFinish={handleSubmit}
+          layout="vertical"
+          requiredMark={false}
         >
-          <Input 
-            prefix={<UserOutlined style={{ color: '#1677ff' }} />} 
-            placeholder="请输入账号" 
-            maxLength={20}
-            autoComplete="off"
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="password"
-          label="密码"
-          rules={[
-            { required: true, message: '请输入登录密码' },
-            { min: 6, message: '密码长度不能少于6位！' },
-          ]}
-        >
-          <Input.Password 
-            prefix={<LockOutlined style={{ color: '#1677ff' }} />} 
-            placeholder="请输入密码" 
-            maxLength={20}
-            autoComplete="off"
-          />
-        </Form.Item>
-
-        <Form.Item wrapperCol={{ span: 24 }} style={{ marginTop: '20px' }}>
-          <Button 
-            type="primary" 
-            htmlType="submit" 
-            loading={loading}
-            style={{ 
-              width: '100%', 
-              backgroundColor: '#1677ff', 
-              borderColor: '#1677ff',
-              height: '40px',
-              fontSize: '16px'
-            }}
+          <Form.Item
+            name="username"
+            label="账号"
+            rules={[{ required: true, message: '请输入登录账号' }]}
           >
-            登录
-          </Button>
-        </Form.Item>
+            <Input
+              prefix={<UserOutlined style={{ color: 'var(--primary)' }} />}
+              placeholder="请输入账号"
+              maxLength={20}
+              autoComplete="off"
+              size="large"
+            />
+          </Form.Item>
 
-        <Form.Item style={{ marginBottom: 0, wrapperCol: { span: 24 } }}>
-          <div style={{ textAlign: 'center' }}>
-            <Link to="/register" style={{ color: '#1677ff', fontSize: '14px' }}>
+          <Form.Item
+            name="password"
+            label="密码"
+            rules={[
+              { required: true, message: '请输入登录密码' },
+              { min: 6, message: '密码长度不能少于6位！' },
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: 'var(--primary)' }} />}
+              placeholder="请输入密码"
+              maxLength={20}
+              autoComplete="off"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginTop: '24px', marginBottom: '16px' }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              size="large"
+              block
+              className="app-btn-primary"
+              style={{ height: 44, fontSize: 16 }}
+            >
+              登录
+            </Button>
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'center' }}>
+            <Link to="/register" style={{ color: 'var(--primary)', fontSize: 14 }}>
               还没有账号？立即注册
             </Link>
-          </div>
-        </Form.Item>
-      </Form>
+          </Form.Item>
+        </Form>
+      </Card>
     </div>
   );
 });

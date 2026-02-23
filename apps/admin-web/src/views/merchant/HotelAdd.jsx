@@ -89,8 +89,8 @@ const HotelAdd = () => {
   };
 
   return (
-    <div className="hotel-add-container">
-      <Card title={<Title level={3}>创建酒店（商户）</Title>} bordered={false}>
+    <div className="app-page hotel-add-container">
+      <Card className="app-card" title={<Title level={4} style={{ margin: 0 }}>创建酒店</Title>} bordered={false}>
         <Form
           form={form}
           layout="vertical"
@@ -247,15 +247,15 @@ const HotelAdd = () => {
           </Form.Item>
 
           {/* 提交按钮区 */}
-          <Form.Item style={{ textAlign: 'center', marginTop: 20 }}>
+          <Form.Item style={{ textAlign: 'center', marginTop: 24 }}>
             <Space size="middle">
-              <Button type="primary" htmlType="submit" size="large">
+              <Button type="primary" htmlType="submit" size="large" className="app-btn-primary">
                 创建酒店
               </Button>
-              <Button size="large" onClick={() => form.resetFields()}>
+              <Button size="large" className="app-btn-default" onClick={() => form.resetFields()}>
                 重置表单
               </Button>
-              <Button size="large" onClick={() => navigate('/merchant/home')}>
+              <Button size="large" className="app-btn-default" onClick={() => navigate('/merchant/home')}>
                 返回首页
               </Button>
             </Space>

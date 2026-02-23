@@ -380,8 +380,8 @@ const HotelEdit = () => {
   };
 
   return (
-    <div className="hotel-add-container">
-      <Card title={<Title level={3}>编辑酒店（商户）</Title>} bordered={false}>
+    <div className="app-page hotel-add-container">
+      <Card className="app-card" title={<Title level={4} style={{ margin: 0 }}>编辑酒店</Title>} bordered={false}>
         <Form
           form={form}
           layout="vertical"
@@ -533,9 +533,9 @@ const HotelEdit = () => {
           </Form.Item>
 
           {/* 提交按钮区 */}
-          <Form.Item style={{ textAlign: 'center', marginTop: 20 }}>
+          <Form.Item style={{ textAlign: 'center', marginTop: 24 }}>
             <Space size="middle">
-              <Button type="primary" htmlType="submit" size="large" loading={loading}>
+              <Button type="primary" htmlType="submit" size="large" loading={loading} className="app-btn-primary">
                 保存修改
               </Button>
               {(hotelStatus === 'draft' || hotelStatus === 'approved' || hotelStatus === 'rejected') && (
@@ -549,7 +549,7 @@ const HotelEdit = () => {
                   {hotelStatus === 'draft' ? '提交审核' : '重新提交审核'}
                 </Button>
               )}
-              <Button size="large" onClick={() => navigate('/merchant/hotel-list')}>
+              <Button size="large" className="app-btn-default" onClick={() => navigate('/merchant/hotel-list')}>
                 返回列表
               </Button>
             </Space>

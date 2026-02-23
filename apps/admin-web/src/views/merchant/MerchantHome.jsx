@@ -1,11 +1,11 @@
 import React from 'react';
-import { Button, Modal } from 'antd'; // 改用Modal.confirm（antd 5.x）
+import { Button, Modal, Card } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
+import { PlusOutlined, UnorderedListOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const MerchantHome = () => {
   const navigate = useNavigate();
 
-  // 商户退出登录（只清登录状态，保留业务数据）
   const handleLogout = () => {
     Modal.confirm({
       title: '确认退出',
@@ -14,52 +14,48 @@ const MerchantHome = () => {
       cancelText: '取消',
       onOk: () => {
         try {
-          // ✅ 只清除登录状态相关（核心修改）
-          localStorage.removeItem('role');       // 角色标识
-          localStorage.removeItem('currentUser');// 当前登录用户
-          localStorage.removeItem('hotel_token'); // 登录令牌
-          
-          // ❌ 不清除以下业务数据
-          // localStorage.removeItem('registeredUsers'); // 保留注册数据
-          // localStorage.removeItem('hotelList');       // 保留酒店数据（如有）
-
-          // 跳登录页，防止回退
+          localStorage.removeItem('role');
+          localStorage.removeItem('currentUser');
+          localStorage.removeItem('hotel_token');
           navigate('/', { replace: true });
           Modal.success({ content: '退出成功，您的商户数据已保留！' });
         } catch (error) {
           console.error('退出登录失败：', error);
-          window.location.href = '/'; // 兜底跳转
+          window.location.href = '/';
         }
       }
     });
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1>酒店预订系统-商户端</h1>
-      <p>欢迎回来，您可以在这里管理您的酒店信息</p>
-
-      <div style={{ marginTop: '30px' }}>
-        <Link to="/merchant/hotel-add">
-          <Button type="primary" size="large" style={{ marginRight: '16px' }}>
-            录入酒店信息
-          </Button>
-        </Link>
-        <Link to="/merchant/hotel-list">
-          <Button type="default" size="large" style={{ marginLeft: '16px' }}>
-            我的酒店列表
-          </Button>
-        </Link>
+    <div className="app-page">
+      <div className="app-page-header">
+        <div className="app-page-title-wrap">
+          <div className="app-page-icon">🏨</div>
+          <div>
+            <h1 className="app-page-title">酒店预订系统 · 商户端</h1>
+            <p className="app-page-subtitle">欢迎回来，您可以在这里管理您的酒店信息</p>
+          </div>
+        </div>
       </div>
-      <div style={{ marginTop: '16px' }}>
-        <Button 
-          onClick={handleLogout} 
-          size="large"
-          danger
-        >
-          退出登录
-        </Button>
-      </div>  
+
+      <Card className="app-card" bordered={false} style={{ padding: '28px 24px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <Link to="/merchant/hotel-add">
+            <Button type="primary" size="large" className="app-btn-primary" icon={<PlusOutlined />}>
+              录入酒店信息
+            </Button>
+          </Link>
+          <Link to="/merchant/hotel-list">
+            <Button size="large" className="app-btn-default" icon={<UnorderedListOutlined />}>
+              我的酒店列表
+            </Button>
+          </Link>
+          <Button size="large" danger icon={<LogoutOutlined />} onClick={handleLogout}>
+            退出登录
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 };
