@@ -74,7 +74,7 @@ export default function Search() {
     return null;
   }, []);
 
-  // ✅ 价格区间回显（按你要的：0-300 / 301-600 / 601-900 / 901+）
+  // ✅ 价格区间回显
   const priceBucketValue = useMemo(() => {
     const min = query.min_price;
     const max = query.max_price;
@@ -92,15 +92,25 @@ export default function Search() {
     return undefined;
   }, [query.min_price, query.max_price]);
 
-  return (
-    <div style={{ padding: 24 }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <h2 style={{ marginBottom: 16 }}>酒店查询</h2>
+    return (
+    <div style={{ padding: 12 }}>
+      {/* mobile-first 容器：手机像 H5，电脑也不至于太丑 */}
+      <div
+        style={{
+          maxWidth: 430, // ✅ 关键：把宽屏味砍掉
+          margin: "0 auto",
+        }}
+      >
+        <h2 style={{ marginBottom: 12, fontSize: 18 }}>酒店查询</h2>
 
         {/* 1) Banner */}
-        <Carousel autoplay style={{ marginBottom: 16 }}>
+        <Carousel autoplay style={{ marginBottom: 12 }}>
           {(banners.length ? banners : FALLBACK_BANNERS).map((b) => (
-            <div key={b.id} onClick={() => navigate(`/hotel/${b.id}?${queryString}`)} style={{ cursor: "pointer" }}>
+            <div
+              key={b.id}
+              onClick={() => navigate(`/hotel/${b.id}?${queryString}`)}
+              style={{ cursor: "pointer" }}
+            >
               <div
                 style={{
                   height: 180,
@@ -110,9 +120,9 @@ export default function Search() {
                   backgroundPosition: "center",
                   display: "flex",
                   alignItems: "flex-end",
-                  padding: 16,
+                  padding: 14,
                   color: "#fff",
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: 600,
                   userSelect: "none",
                 }}
@@ -124,9 +134,10 @@ export default function Search() {
         </Carousel>
 
         {/* 2) 核心查询区域 */}
-        <Card>
-          <Row gutter={[12, 12]} align="middle">
-            <Col span={6}>
+        <Card bodyStyle={{ padding: 12 }}>
+          {/* 第一组：城市 / 关键词 */}
+          <Row gutter={[10, 10]}>
+            <Col xs={24} md={12}>
               <Input
                 style={{ width: "100%" }}
                 placeholder="地点/城市（可输入，定位可自动回填）"
@@ -136,7 +147,7 @@ export default function Search() {
               />
             </Col>
 
-            <Col span={6}>
+            <Col xs={24} md={12}>
               <Input
                 placeholder="关键字（酒店名/商圈/景点）"
                 allowClear
@@ -144,25 +155,29 @@ export default function Search() {
                 onChange={(e) => updateQuery({ keyword: e.target.value })}
               />
             </Col>
+          </Row>
 
-            <Col span={8}>
-              <RangePicker
-                style={{ width: "100%" }}
-                value={dateValue}
-                onChange={(dates) => {
-                  if (!dates) {
-                    updateQuery({ check_in: null, check_out: null });
-                    return;
-                  }
-                  updateQuery({
-                    check_in: dates[0].format("YYYY-MM-DD"),
-                    check_out: dates[1].format("YYYY-MM-DD"),
-                  });
-                }}
-              />
-            </Col>
+          {/* 第二组：日期 */}
+          <div style={{ marginTop: 10 }}>
+            <RangePicker
+              style={{ width: "100%" }}
+              value={dateValue}
+              onChange={(dates) => {
+                if (!dates) {
+                  updateQuery({ check_in: null, check_out: null });
+                  return;
+                }
+                updateQuery({
+                  check_in: dates[0].format("YYYY-MM-DD"),
+                  check_out: dates[1].format("YYYY-MM-DD"),
+                });
+              }}
+            />
+          </div>
 
-            <Col span={2}>
+          {/* 第三组：人数 + 定位（两列） */}
+          <Row gutter={[10, 10]} style={{ marginTop: 10 }}>
+            <Col xs={12} md={12}>
               <InputNumber
                 min={1}
                 max={8}
@@ -172,7 +187,7 @@ export default function Search() {
               />
             </Col>
 
-            <Col span={2}>
+            <Col xs={12} md={12}>
               <Button
                 block
                 onClick={async () => {
@@ -190,23 +205,23 @@ export default function Search() {
             </Col>
           </Row>
 
-          <Row style={{ marginTop: 8 }}>
-            <Col span={24}>
-              {query.lat && query.lng ? (
-                <Tag color="blue">
-                  已定位：{Number(query.lat).toFixed(4)}, {Number(query.lng).toFixed(4)}（城市：{query.city || "未填"}）
-                </Tag>
-              ) : (
-                <Tag>未定位</Tag>
-              )}
-            </Col>
-          </Row>
+          {/* 定位结果 */}
+          <div style={{ marginTop: 8 }}>
+            {query.lat && query.lng ? (
+              <Tag color="blue">
+                已定位：{Number(query.lat).toFixed(4)}, {Number(query.lng).toFixed(4)}（城市：
+                {query.city || "未填"}）
+              </Tag>
+            ) : (
+              <Tag>未定位</Tag>
+            )}
+          </div>
 
           <Divider style={{ margin: "12px 0" }} />
 
-          {/* 第二行：筛选条件（星级/价格/设施） */}
-          <Row gutter={[12, 12]} align="middle">
-            <Col span={6}>
+          {/* 星级 / 价格 */}
+          <Row gutter={[10, 10]}>
+            <Col xs={12} md={12}>
               <Select
                 style={{ width: "100%" }}
                 placeholder="星级"
@@ -223,7 +238,7 @@ export default function Search() {
               />
             </Col>
 
-            <Col span={6}>
+            <Col xs={12} md={12}>
               <Select
                 style={{ width: "100%" }}
                 placeholder="价格区间"
@@ -244,28 +259,28 @@ export default function Search() {
                 ]}
               />
             </Col>
-
-            <Col span={12}>
-              <div style={{ opacity: 0.8, marginBottom: 4 }}>快捷标签（设施）</div>
-              <FacilitiesPicker
-                options={facilityOptions}
-                value={query.facilities}
-                onChange={(next) => updateQuery({ facilities: next })}
-              />
-            </Col>
           </Row>
+
+          {/* 设施快捷标签 */}
+          <div style={{ marginTop: 10 }}>
+            <div style={{ opacity: 0.8, marginBottom: 6 }}>快捷标签（设施）</div>
+            <FacilitiesPicker
+              options={facilityOptions}
+              value={query.facilities}
+              onChange={(next) => updateQuery({ facilities: next })}
+            />
+          </div>
 
           <Divider style={{ margin: "12px 0" }} />
 
-          {/* 3) 查询按钮 */}
-          <Row>
-            <Col span={24}>
-              <Button type="primary" block onClick={() => navigate(`/list?${queryString}`)}>
-                查询
-              </Button>
-            </Col>
-          </Row>
+          {/* 查询按钮 */}
+          <Button type="primary" block onClick={() => navigate(`/list?${queryString}`)}>
+            查询
+          </Button>
         </Card>
+
+        {/* 给底部一点呼吸，不然手机显得挤 */}
+        <div style={{ height: 16 }} />
       </div>
     </div>
   );

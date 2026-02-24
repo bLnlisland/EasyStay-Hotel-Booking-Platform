@@ -139,95 +139,143 @@ export default function HotelDetail() {
   const roomTypes = Array.isArray(hotel.room_types) ? hotel.room_types : [];
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ marginBottom: 12 }}>
-        <Link to={backToList}>← 返回列表</Link>
-      </div>
+    <div style={{ padding: 12 }}>
+      <div style={{ maxWidth: 430, margin: "0 auto" }}>
+        {/* 返回：做成更好点的点击区域 */}
+        <div style={{ marginBottom: 10 }}>
+          <Link
+            to={backToList}
+            style={{
+              display: "inline-block",
+              padding: "6px 10px",
+              borderRadius: 10,
+              background: "#fff",
+            }}
+          >
+            ← 返回列表
+          </Link>
+        </div>
 
-      <div style={{ marginBottom: 12, borderRadius: 12, overflow: "hidden" }}>
-        <Carousel autoplay dots>
-          {images.map((url, idx) => (
-            <div key={`${url}-${idx}`}>
-              <div
-                style={{
-                  height: 220,
-                  backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${url})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  position: "relative",
-                }}
-              >
+        {/* Banner */}
+        <div style={{ marginBottom: 10, borderRadius: 12, overflow: "hidden" }}>
+          <Carousel autoplay dots>
+            {images.map((url, idx) => (
+              <div key={`${url}-${idx}`}>
                 <div
                   style={{
-                    position: "absolute",
-                    left: 12,
-                    bottom: 10,
-                    color: "#fff",
-                    fontWeight: 600,
-                    textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                    height: 200,
+                    backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    position: "relative",
                   }}
                 >
-                  {hotel.name_zh}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 12,
+                      bottom: 10,
+                      right: 12,
+                      color: "#fff",
+                      fontWeight: 600,
+                      textShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {hotel.name_zh}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </Carousel>
-      </div>
-
-      <Card title={hotel.name_zh}>
-        <div>城市：{hotel.city}</div>
-        {"address" in hotel ? <div>地址：{hotel.address || "—"}</div> : null}
-        <div>星级：{hotel.star_rating}</div>
-
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>酒店设施</div>
-
-          {Array.isArray(hotel.facilities) && hotel.facilities.length ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {hotel.facilities.map((id) => (
-                <Tag key={id}>{FACILITY_NAME_BY_ID[id] || id}</Tag>
-              ))}
-            </div>
-          ) : (
-            <span style={{ opacity: 0.6 }}>—</span>
-          )}
+            ))}
+          </Carousel>
         </div>
 
-        {/* 日期选择：写回 URL，触发重新拉取 */}
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>选择入住 / 离店</div>
-          <RangePicker value={dateValue} onChange={setDates} allowClear style={{ width: "100%" }} />
-        </div>
+        {/* 基础信息卡 */}
+        <Card title={hotel.name_zh} bodyStyle={{ padding: 12 }}>
+          <div style={{ opacity: 0.85 }}>城市：{hotel.city}</div>
+          {"address" in hotel ? <div style={{ opacity: 0.85 }}>地址：{hotel.address || "—"}</div> : null}
+          <div style={{ opacity: 0.85 }}>星级：{hotel.star_rating}</div>
 
-        <div style={{ marginTop: 8 }}>
-          <div>最低价：{hotel.min_price ?? "—"}</div>
-          <div>最高价：{hotel.max_price ?? "—"}</div>
-          <div>预估总价：{hotel.estimated_total ?? "—"}</div>
-        </div>
+          {/* 设施 */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>酒店设施</div>
 
-        <div style={{ marginTop: 12 }}>
-          <Tag>入住：{check_in || "未选择"}</Tag>
-          <Tag>离店：{check_out || "未选择"}</Tag>
-          <Tag>人数：{guests}</Tag>
-        </div>
-
-        <h3 style={{ marginTop: 16 }}>可选房型</h3>
-        <List
-          dataSource={roomTypes}
-          locale={{ emptyText: "暂无可用房型" }}
-          renderItem={(r) => (
-            <List.Item>
-              <div style={{ width: "100%" }}>
-                <b>{r.name}</b>（最多 {r.max_guests} 人）
-                {r.area != null && <div>面积：{r.area} ㎡</div>}
-                <div>价格：¥{r.base_price}/晚</div>
-                {r.total_price != null && <div>总价：¥{r.total_price}</div>}
+            {Array.isArray(hotel.facilities) && hotel.facilities.length ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {hotel.facilities.map((id) => (
+                  <Tag key={id}>{FACILITY_NAME_BY_ID[id] || id}</Tag>
+                ))}
               </div>
-            </List.Item>
-          )}
-        />
-      </Card>
+            ) : (
+              <span style={{ opacity: 0.6 }}>—</span>
+            )}
+          </div>
+
+          {/* 日期选择 */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>选择入住 / 离店</div>
+            <RangePicker value={dateValue} onChange={setDates} allowClear style={{ width: "100%" }} />
+          </div>
+
+          {/* 价格信息：做成更“汇总块” */}
+          <div
+            style={{
+              marginTop: 12,
+              padding: 10,
+              borderRadius: 12,
+              background: "#fafafa",
+            }}
+          >
+            <div>最低价：{hotel.min_price ?? "—"}</div>
+            <div>最高价：{hotel.max_price ?? "—"}</div>
+            <div style={{ fontWeight: 600, marginTop: 4 }}>预估总价：{hotel.estimated_total ?? "—"}</div>
+          </div>
+
+          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Tag>入住：{check_in || "未选择"}</Tag>
+            <Tag>离店：{check_out || "未选择"}</Tag>
+            <Tag>人数：{guests}</Tag>
+          </div>
+
+          {/* 房型 */}
+          <h3 style={{ marginTop: 16, marginBottom: 8 }}>可选房型</h3>
+          <List
+            dataSource={roomTypes}
+            locale={{ emptyText: "暂无可用房型" }}
+            renderItem={(r) => (
+              <List.Item style={{ paddingLeft: 0, paddingRight: 0 }}>
+                {/* 房型卡片化：更像移动端 */}
+                <div
+                  style={{
+                    width: "100%",
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #f0f0f0",
+                    background: "#fff",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {r.name} <span style={{ fontWeight: 400, opacity: 0.75 }}>（最多 {r.max_guests} 人）</span>
+                      </div>
+                      {r.area != null && <div style={{ opacity: 0.8, marginTop: 4 }}>面积：{r.area} ㎡</div>}
+                      {r.total_price != null && <div style={{ opacity: 0.8, marginTop: 4 }}>总价：¥{r.total_price}</div>}
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>¥{r.base_price}</div>
+                      <div style={{ opacity: 0.7, fontSize: 12 }}>/晚</div>
+                    </div>
+                  </div>
+                </div>
+              </List.Item>
+            )}
+          />
+        </Card>
+
+        <div style={{ height: 16 }} />
+      </div>
     </div>
   );
 }

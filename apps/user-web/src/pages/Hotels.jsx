@@ -175,208 +175,246 @@ export default function Hotels() {
   }, [hotels, query.sort]);
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>酒店列表</h2>
+    <div style={{ padding: 12 }}>
+      {/* 移动端容器：像H5 */}
+      <div style={{ maxWidth: 430, margin: "0 auto" }}>
+        <h2 style={{ marginBottom: 8, fontSize: 18 }}>酒店列表</h2>
 
-      {/* 顶部标签 */}
-      <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-        {query.city && <Tag>城市：{query.city}</Tag>}
-        {query.check_in && query.check_out && <Tag>日期：{query.check_in} ～ {query.check_out}</Tag>}
-        {query.star_rating && <Tag>星级：{query.star_rating}</Tag>}
-        {(query.min_price != null || query.max_price != null) && (
-          <Tag>
-            价格：{query.min_price ?? 0} ～ {query.max_price ?? "∞"}
-          </Tag>
-        )}
-        {query.facilities?.map((f) => (
-          <Tag key={f}>{f}</Tag>
-        ))}
-        {query.sort && <Tag color="purple">排序：{query.sort}</Tag>}
-      </Row>
+        {/* 顶部标签：移动端建议横向可滚动 */}
+        <div style={{ overflowX: "auto", whiteSpace: "nowrap", marginBottom: 10 }}>
+          {query.city && <Tag style={{ display: "inline-block" }}>城市：{query.city}</Tag>}
+          {query.check_in && query.check_out && (
+            <Tag style={{ display: "inline-block" }}>
+              日期：{query.check_in} ～ {query.check_out}
+            </Tag>
+          )}
+          {query.star_rating && <Tag style={{ display: "inline-block" }}>星级：{query.star_rating}</Tag>}
+          {(query.min_price != null || query.max_price != null) && (
+            <Tag style={{ display: "inline-block" }}>
+              价格：{query.min_price ?? 0} ～ {query.max_price ?? "∞"}
+            </Tag>
+          )}
+          {query.facilities?.map((f) => (
+            <Tag key={f} style={{ display: "inline-block" }}>
+              {f}
+            </Tag>
+          ))}
+          {query.sort && (
+            <Tag color="purple" style={{ display: "inline-block" }}>
+              排序：{query.sort}
+            </Tag>
+          )}
+        </div>
 
-      {/* ===== 查询条件区（即时生效：改了就写 URL） ===== */}
-      <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 12 }}>
-        <Col>
-          <Input
-            style={{ width: 160 }}
-            placeholder="地点/城市（可输入）"
-            allowClear
-            value={query.city}
-            onChange={(e) => updateQuery({ city: e.target.value })}
-          />
-        </Col>
-
-        <Col>
-          <RangePicker
-            onChange={(dates) => {
-              if (!dates) return updateQuery({ check_in: null, check_out: null });
-              updateQuery({
-                check_in: dates[0].format("YYYY-MM-DD"),
-                check_out: dates[1].format("YYYY-MM-DD"),
-              });
-            }}
-          />
-        </Col>
-
-        <Col>
-          <InputNumber
-            min={1}
-            max={8}
-            value={query.guests}
-            onChange={(v) => updateQuery({ guests: v || 2 })}
-            addonBefore="人数"
-          />
-        </Col>
-
-        <Col>
-          <Button
-            onClick={async () => {
-              try {
-                const patch = await locateToPatch(query.city);
-                updateQuery({ ...patch, radiusKm: undefined }); // radiusKm 你目前没纳入统一 query，可先不带
-              } catch (e) {
-                console.error(e);
-                alert("定位失败（可能未授权/浏览器不支持）");
-              }
-            }}
-          >
-            使用定位
-          </Button>
-        </Col>
-
-        <Col>{query.lat && query.lng && <Tag color="blue">已定位：{Number(query.lat).toFixed(4)}, {Number(query.lng).toFixed(4)}</Tag>}</Col>
-
-        <Col>
-          <Button onClick={() => setFilterOpen(true)}>详细筛选</Button>
-        </Col>
-      </Row>
-
-      {/* ===== 详细筛选 Drawer ===== */}
-      <Drawer title="详细筛选" open={filterOpen} onClose={() => setFilterOpen(false)} placement="right" width={360}>
-        <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <div>
-            <div style={{ marginBottom: 6, opacity: 0.8 }}>关键字</div>
+        {/* 顶部操作区：移动端就保留三个东西：城市输入 + 定位 + 筛选 */}
+        <Row gutter={[10, 10]} align="middle" style={{ marginBottom: 10 }}>
+          <Col xs={24} md={12}>
             <Input
-              placeholder="酒店名/地址/城市"
-              value={query.keyword}
-              onChange={(e) => updateQuery({ keyword: e.target.value })}
+              placeholder="地点/城市（可输入）"
               allowClear
+              value={query.city}
+              onChange={(e) => updateQuery({ city: e.target.value })}
             />
-          </div>
+          </Col>
 
-          <div>
-            <div style={{ marginBottom: 6, opacity: 0.8 }}>星级</div>
-            <Select
-              style={{ width: "100%" }}
-              allowClear
-              placeholder="星级"
-              value={query.star_rating ?? undefined}
-              onChange={(v) => updateQuery({ star_rating: v ?? null })}
-              options={[
-                { value: 1, label: "一星" },
-                { value: 2, label: "二星" },
-                { value: 3, label: "三星" },
-                { value: 4, label: "四星" },
-                { value: 5, label: "五星" },
-              ]}
-            />
-          </div>
+          <Col xs={12} md={6}>
+            <Button
+              block
+              onClick={async () => {
+                try {
+                  const patch = await locateToPatch(query.city);
+                  updateQuery({ ...patch, radiusKm: undefined });
+                } catch (e) {
+                  console.error(e);
+                  alert("定位失败（可能未授权/浏览器不支持）");
+                }
+              }}
+            >
+              定位
+            </Button>
+          </Col>
 
-          <div>
-            <div style={{ marginBottom: 6, opacity: 0.8 }}>价格区间（元）</div>
-            <Row gutter={8}>
-              <Col span={12}>
-                <InputNumber
-                  style={{ width: "100%" }}
-                  placeholder="最低价"
-                  min={0}
-                  value={query.min_price}
-                  onChange={(v) => updateQuery({ min_price: v ?? null })}
-                />
-              </Col>
-              <Col span={12}>
-                <InputNumber
-                  style={{ width: "100%" }}
-                  placeholder="最高价"
-                  min={0}
-                  value={query.max_price}
-                  onChange={(v) => updateQuery({ max_price: v ?? null })}
-                />
-              </Col>
-            </Row>
-          </div>
+          <Col xs={12} md={6}>
+            <Button block type="primary" onClick={() => setFilterOpen(true)}>
+              筛选
+            </Button>
+          </Col>
 
-          <div>
-            <div style={{ marginBottom: 6, opacity: 0.8 }}>设施</div>
-            <FacilitiesPicker options={facilityOptions} value={query.facilities} onChange={(next) => updateQuery({ facilities: next })} />
-          </div>
+          {/* 定位提示（可选） */}
+          {query.lat && query.lng && (
+            <Col xs={24}>
+              <Tag color="blue">
+                已定位：{Number(query.lat).toFixed(4)}, {Number(query.lng).toFixed(4)}
+              </Tag>
+            </Col>
+          )}
+        </Row>
 
-          <div>
-            <div style={{ marginBottom: 6, opacity: 0.8 }}>排序</div>
-            <Select
-              style={{ width: "100%" }}
-              allowClear
-              placeholder="默认排序"
-              value={query.sort || undefined}
-              onChange={(v) => updateQuery({ sort: v || null })}
-              options={[
-                { value: "price_asc", label: "价格从低到高" },
-                { value: "price_desc", label: "价格从高到低" },
-                { value: "star_desc", label: "星级从高到低" },
-              ]}
-            />
-          </div>
+        {/* 详细筛选 Drawer：移动端建议 bottom，更像App */}
+        <Drawer
+          title="筛选"
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          placement="bottom"
+          height="78vh"
+        >
+          <Space direction="vertical" style={{ width: "100%" }} size={12}>
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>关键字</div>
+              <Input
+                placeholder="酒店名/地址/城市"
+                value={query.keyword}
+                onChange={(e) => updateQuery({ keyword: e.target.value })}
+                allowClear
+              />
+            </div>
 
-          <Row gutter={8}>
-            <Col span={12}>
-              <Button
-                block
-                onClick={() => {
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>日期</div>
+              <RangePicker
+                style={{ width: "100%" }}
+                onChange={(dates) => {
+                  if (!dates) return updateQuery({ check_in: null, check_out: null });
                   updateQuery({
-                    keyword: "",
-                    star_rating: null,
-                    min_price: null,
-                    max_price: null,
-                    facilities: [],
-                    sort: null,
+                    check_in: dates[0].format("YYYY-MM-DD"),
+                    check_out: dates[1].format("YYYY-MM-DD"),
                   });
                 }}
+              />
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>人数</div>
+              <InputNumber
+                min={1}
+                max={8}
+                style={{ width: "100%" }}
+                value={query.guests}
+                onChange={(v) => updateQuery({ guests: v || 2 })}
+              />
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>星级</div>
+              <Select
+                style={{ width: "100%" }}
+                allowClear
+                placeholder="星级"
+                value={query.star_rating ?? undefined}
+                onChange={(v) => updateQuery({ star_rating: v ?? null })}
+                options={[
+                  { value: 1, label: "一星" },
+                  { value: 2, label: "二星" },
+                  { value: 3, label: "三星" },
+                  { value: 4, label: "四星" },
+                  { value: 5, label: "五星" },
+                ]}
+              />
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>价格区间（元）</div>
+              <Row gutter={8}>
+                <Col span={12}>
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    placeholder="最低价"
+                    min={0}
+                    value={query.min_price}
+                    onChange={(v) => updateQuery({ min_price: v ?? null })}
+                  />
+                </Col>
+                <Col span={12}>
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    placeholder="最高价"
+                    min={0}
+                    value={query.max_price}
+                    onChange={(v) => updateQuery({ max_price: v ?? null })}
+                  />
+                </Col>
+              </Row>
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>设施</div>
+              <FacilitiesPicker
+                options={facilityOptions}
+                value={query.facilities}
+                onChange={(next) => updateQuery({ facilities: next })}
+              />
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 6, opacity: 0.8 }}>排序</div>
+              <Select
+                style={{ width: "100%" }}
+                allowClear
+                placeholder="默认排序"
+                value={query.sort || undefined}
+                onChange={(v) => updateQuery({ sort: v || null })}
+                options={[
+                  { value: "price_asc", label: "价格从低到高" },
+                  { value: "price_desc", label: "价格从高到低" },
+                  { value: "star_desc", label: "星级从高到低" },
+                ]}
+              />
+            </div>
+
+            <Row gutter={8}>
+              <Col span={12}>
+                <Button
+                  block
+                  onClick={() => {
+                    updateQuery({
+                      keyword: "",
+                      star_rating: null,
+                      min_price: null,
+                      max_price: null,
+                      facilities: [],
+                      sort: null,
+                    });
+                  }}
+                >
+                  重置
+                </Button>
+              </Col>
+              <Col span={12}>
+                <Button type="primary" block onClick={() => setFilterOpen(false)}>
+                  完成
+                </Button>
+              </Col>
+            </Row>
+          </Space>
+        </Drawer>
+
+        {/* 列表区：手机必须单列 */}
+        <List
+          grid={{ gutter: 12, column: 1 }}
+          dataSource={USE_MOCK ? [] : viewHotels}
+          renderItem={(h) => (
+            <List.Item>
+              <Card
+                title={h.name_zh}
+                extra={<Link to={`/hotel/${h.id}?${queryString}`}>详情</Link>}
+                bodyStyle={{ padding: 12 }}
               >
-                重置
-              </Button>
-            </Col>
-            <Col span={12}>
-              <Button type="primary" block onClick={() => setFilterOpen(false)}>
-                完成
-              </Button>
-            </Col>
-          </Row>
-        </Space>
-      </Drawer>
+                <div style={{ opacity: 0.85 }}>城市：{h.city}</div>
+                <div style={{ opacity: 0.85 }}>地址：{h.address}</div>
+                <div style={{ opacity: 0.85 }}>星级：{h.star_rating}</div>
+                <div style={{ marginTop: 6, fontWeight: 600 }}>起价：{getHotelMinPrice(h) ?? "-"}</div>
+              </Card>
+            </List.Item>
+          )}
+        />
 
-      {/* ===== 列表区 ===== */}
-      <List
-        grid={{ gutter: 16, column: 2 }}
-        dataSource={USE_MOCK ? [] : viewHotels}
-        renderItem={(h) => (
-          <List.Item>
-            <Card
-              title={h.name_zh}
-              extra={<Link to={`/hotel/${h.id}?${queryString}`}>查看详情</Link>}
-            >
-              <div>城市：{h.city}</div>
-              <div>地址：{h.address}</div>
-              <div>星级：{h.star_rating}</div>
-              <div>起价：{getHotelMinPrice(h) ?? "-"}</div>
-            </Card>
-          </List.Item>
-        )}
-      />
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <Button block disabled={!hasMore} loading={loading} onClick={() => setPage((p) => p + 1)}>
+            {hasMore ? "加载更多" : "没有更多了"}
+          </Button>
+        </div>
 
-      <div style={{ textAlign: "center", marginTop: 16 }}>
-        <Button disabled={!hasMore} loading={loading} onClick={() => setPage((p) => p + 1)}>
-          {hasMore ? "加载更多" : "没有更多了"}
-        </Button>
+        <div style={{ height: 16 }} />
       </div>
     </div>
   );
