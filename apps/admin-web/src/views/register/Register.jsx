@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Form, Input, Button, message, Card, Typography, Radio } from 'antd';
+import { Form, Input, Button, message, Card, Typography, Radio, Alert } from 'antd';
 import { CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -21,9 +21,11 @@ const MerchantRegister = () => {
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [role, setRole] = useState('merchant');
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (values) => {
+    setSubmitError('');
     try {
       setLoading(true);
       // 1. 商户专属校验
@@ -77,14 +79,19 @@ const MerchantRegister = () => {
           navigate('/login');
         }, 2000);
       } else {
-        message.error(response.data.message || '注册失败！');
+        const msg = response.data.message || '注册失败！';
+        const details = response.data.errors;
+        const errMsg = details && details.length ? `${msg}（${details.join('；')}）` : msg;
+        setSubmitError(errMsg);
+        message.error(errMsg);
       }
     } catch (error) {
       console.error('注册错误：', error);
-      // 解析后端详细错误
-      const errMsg = error.response?.data?.message || 
-                     error.response?.data?.error || 
-                     '注册失败，请检查参数格式！';
+      const data = error.response?.data;
+      const msg = data?.message || data?.error || '注册失败，请检查参数格式！';
+      const details = data?.errors;
+      const errMsg = details && details.length ? `${msg}（${details.join('；')}）` : msg;
+      setSubmitError(errMsg);
       message.error(errMsg);
     } finally {
       setLoading(false);
@@ -103,9 +110,21 @@ const MerchantRegister = () => {
           </div>
         )}
 
+        {submitError && (
+          <Alert
+            type="error"
+            message={submitError}
+            showIcon
+            closable
+            onClose={() => setSubmitError('')}
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
         <Form
           ref={formRef}
           layout="vertical"
+          initialValues={{ role: 'merchant' }}
           onFinish={handleSubmit}
           validateMessages={{
             /* eslint-disable no-template-curly-in-string */
