@@ -89,7 +89,7 @@ const HotelList = () => {
           auditStatus: item.status || 'pending',
           publishStatus: item.publish_status || 'offline',
           createTime: item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '',
-          rejectReason: item.reject_reason || ''
+          rejectReason: item.rejection_reason || item.reject_reason || ''
         }));
 
         // 3. 去重：按 id 去重，保留最新的记录（如果接口返回了重复数据）

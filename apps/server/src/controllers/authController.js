@@ -22,7 +22,7 @@ const registerMerchantSchema = Joi.object({
   password: Joi.string().min(6).max(100).required(),
   business_name: Joi.string().max(100).required(),
   business_license: Joi.string().length(18).required(), // 统一信用代码18位
-  license_image: Joi.string().min(1).max(500).required(), // 图片路径，如 /uploads/xxx.jpg
+  license_image: Joi.string().min(1).max(500).optional().allow(''), // 营业执照图片路径，可选
   contact_name: Joi.string().max(100).required(),
   phone: Joi.string().max(20).required(),
   address: Joi.string().max(200).optional(),

@@ -407,14 +407,9 @@ const HotelEdit = () => {
             <Form.Item
               name="city"
               label="所在城市"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: '请输入所在城市' }]}
             >
-              <Select placeholder="请选择城市">
-                <Option value="beijing">北京</Option>
-                <Option value="shanghai">上海</Option>
-                <Option value="guangzhou">广州</Option>
-                <Option value="shenzhen">深圳</Option>
-              </Select>
+              <Input placeholder="请输入所在城市" maxLength={50} />
             </Form.Item>
 
             <Form.Item
@@ -464,7 +459,7 @@ const HotelEdit = () => {
                     <Form.Item
                       {...restField}
                       name={[name, 'name']}
-                      label={`房型 ${key + 1}`}
+                      label={`房型 ${name + 1}`}
                       rules={[{ required: true }]}
                     >
                       <Input placeholder="如：标准间、大床房" maxLength={50} />
