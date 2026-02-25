@@ -18,20 +18,25 @@ export function useHotelQuery() {
     }
   }, [sp]);
 
-  const updateQuery = useCallback(
-    (patch) => {
-      // ✅ 关键：patch 里 value === undefined 的字段不要覆盖原值
-      const cleanedPatch = Object.fromEntries(
-        Object.entries(patch || {}).filter(([, v]) => v !== undefined)
-      );
+const updateQuery = useCallback(
+  (patch) => {
+    const cleanedPatch = Object.fromEntries(
+      Object.entries(patch || {}).filter(([, v]) => v !== undefined)
+    );
 
-      const next = { ...query, ...cleanedPatch };
-      const nextSp = stringifyHotelQueryToSearchParams(next);
-      setSp(nextSp, { replace: true });
-    },
-    [query, setSp]
-  );
+    const next = { ...query, ...cleanedPatch };
 
+    // ✅ 关键：null/"" 代表删除
+    Object.keys(cleanedPatch).forEach((k) => {
+      const v = cleanedPatch[k];
+      if (v === null || v === "") delete next[k];
+    });
+
+    const nextSp = stringifyHotelQueryToSearchParams(next);
+    setSp(nextSp, { replace: true });
+  },
+  [query, setSp]
+);
   const queryString = useMemo(
     () => stringifyHotelQueryToSearchParams(query).toString(),
     [query]

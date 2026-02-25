@@ -16,7 +16,7 @@ export function useHotelQueryParams(defaults = {}) {
       keyword: get("keyword", defaults.keyword ?? ""),
       check_in: get("check_in", defaults.check_in ?? ""),
       check_out: get("check_out", defaults.check_out ?? ""),
-      guests: get("guests", String(defaults.guests ?? "")),
+      guests: Number(sp.get("guests") ?? defaults.guests ?? "") || null,
       star_rating: get("star_rating", defaults.star_rating ?? ""),
       min_price: get("min_price", defaults.min_price ?? ""),
       max_price: get("max_price", defaults.max_price ?? ""),

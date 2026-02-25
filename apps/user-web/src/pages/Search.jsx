@@ -172,7 +172,7 @@ export default function Search() {
                 max={8}
                 style={{ width: "100%" }}
                 value={query.guests ?? null}
-                onChange={(v) => updateQuery({ guests: v ?? null })}
+                onChange={(v) => updateQuery({ guests: v ?? "" })}
                 placeholder="入住人数"
               />
             </Col>

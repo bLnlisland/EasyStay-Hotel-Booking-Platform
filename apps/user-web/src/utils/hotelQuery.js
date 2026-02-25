@@ -8,7 +8,7 @@ export const DEFAULT_HOTEL_QUERY = Object.freeze({
   keyword: "",
   check_in: null,
   check_out: null,
-  guests: 2,
+  guests:null,
   star_rating: null,
   min_price: null,
   max_price: null,
@@ -76,6 +76,9 @@ export function stringifyHotelQueryToSearchParams(query) {
   if (query.min_price != null) sp.set("min_price", String(query.min_price));
   if (query.max_price != null) sp.set("max_price", String(query.max_price));
 
+  if (query.guests != null && query.guests !== "") sp.set("guests", String(query.guests));
+  else sp.delete("guests");
+  
   if (query.facilities?.length) sp.set("facilities", stringifyFacilities(query.facilities));
   if (query.sort) sp.set("sort", String(query.sort));
 
