@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { List, Card, Select, DatePicker, Button, InputNumber, Row, Col, Tag, Drawer, Input, Space,Grid } from "antd";
-import { Link } from "react-router-dom";
+import { Link,useNavigate } from "react-router-dom";
 import { http } from "../api/http";
 import FacilitiesPicker from "../components/FacilitiesPicker";
 import { fetchFacilityOptions } from "../api/facilities";
@@ -9,7 +9,7 @@ import { stringifyFacilities } from "../utils/facilities";
 import { useHotelQuery } from "../hooks/useHotelQuery";
 import { useAmapCity } from "../hooks/useAmapCity";
 import MobileDateRange from "../components/MobileDateRange";
-
+import { ArrowLeftOutlined } from "@ant-design/icons";
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
@@ -204,8 +204,25 @@ useEffect(() => {
     return sortHotels(hotels, query.sort);
   }, [hotels, query.sort]);
 
+  //返回搜索页
+  const navigate = useNavigate();
+
   return (
     <div style={{ padding: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "12px 16px",
+          cursor: "pointer",
+          fontSize: 16,
+          fontWeight: 500,
+        }}
+        onClick={() => navigate(`/search?${queryString}`)}
+      >
+        <ArrowLeftOutlined style={{ marginRight: 8 }} />
+        返回
+      </div>
       {/* 移动端容器：像H5 */}
       <div style={{ maxWidth: 430, margin: "0 auto" }}>
         <h2 style={{ marginBottom: 8, fontSize: 18 }}>酒店列表</h2>
