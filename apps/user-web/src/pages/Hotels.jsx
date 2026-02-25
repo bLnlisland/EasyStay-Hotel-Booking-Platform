@@ -105,7 +105,7 @@ export default function Hotels() {
 
     const params = {
       page,
-      limit: PAGE_SIZE + 1, // 多请求一条用来判断 hasMore
+      limit: PAGE_SIZE, 
       city: query.city || undefined,
       keyword: query.keyword?.trim() || undefined,
       check_in: query.check_in || undefined,
@@ -135,10 +135,8 @@ export default function Hotels() {
           return;
         }
 
-        const listRaw = Array.isArray(data?.hotels) ? data.hotels : [];
-
-        const nextHasMore = listRaw.length > PAGE_SIZE;
-        const list = listRaw.slice(0, PAGE_SIZE);
+        const list = Array.isArray(data?.hotels) ? data.hotels : [];
+        const nextHasMore = !!data?.pagination?.has_more;
 
         setHotels((prev) => (page === 1 ? list : [...prev, ...list]));
         setHasMore(nextHasMore);

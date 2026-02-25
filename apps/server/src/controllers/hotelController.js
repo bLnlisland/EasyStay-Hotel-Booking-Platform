@@ -213,7 +213,7 @@ static async getHotels(req, res) {
   static async getHotelById(req, res) {
     try {
       const { id } = req.params;
-      const { check_in, check_out, guests = 2 } = req.query;
+      const { check_in, check_out } = req.query;
       // 使用findByPk获取单个酒店，包含所有关联数据
       const hotel = await Hotel.findByPk(id, {
         include: [
@@ -480,7 +480,7 @@ static async searchHotels(req, res) {
       max_price,
       star_rating,
       city,
-      guests = 2
+      guests
     } = req.query;
     
     // 🔥 修复：允许只有价格/星级筛选，无需关键词或城市
