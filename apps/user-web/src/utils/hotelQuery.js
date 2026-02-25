@@ -43,8 +43,10 @@ export function parseHotelQueryFromSearchParams(sp) {
   q.check_in = sp.get("check_in") || null;
   q.check_out = sp.get("check_out") || null;
 
-  const guests = toIntOrNull(sp.get("guests"));
-  q.guests = guests && guests > 0 ? guests : 2;
+  const guestsRaw = sp.get("guests");
+  const guests = toIntOrNull(guestsRaw);
+
+  q.guests = guests != null && guests > 0 ? guests : null;
 
   q.star_rating = toIntOrNull(sp.get("star_rating"));
   q.min_price = toIntOrNull(sp.get("min_price"));
@@ -69,8 +71,6 @@ export function stringifyHotelQueryToSearchParams(query) {
 
   if (query.check_in) sp.set("check_in", String(query.check_in));
   if (query.check_out) sp.set("check_out", String(query.check_out));
-
-  sp.set("guests", String(query.guests || 2));
 
   if (query.star_rating != null) sp.set("star_rating", String(query.star_rating));
   if (query.min_price != null) sp.set("min_price", String(query.min_price));

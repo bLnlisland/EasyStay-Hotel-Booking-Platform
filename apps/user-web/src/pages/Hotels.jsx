@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { List, Card, Select, DatePicker, Button, InputNumber, Row, Col, Tag, Drawer, Input, Space } from "antd";
+import { List, Card, Select, DatePicker, Button, InputNumber, Row, Col, Tag, Drawer, Input, Space,Grid } from "antd";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import FacilitiesPicker from "../components/FacilitiesPicker";
@@ -8,11 +8,14 @@ import { stringifyFacilities } from "../utils/facilities";
 
 import { useHotelQuery } from "../hooks/useHotelQuery";
 import { useAmapCity } from "../hooks/useAmapCity";
+import MobileDateRange from "../components/MobileDateRange";
 
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 // 如果你还有 mock 需求可以保留，否则建议直接删掉 mock 分支
 const USE_MOCK = false;
+const PAGE_SIZE = 10;
 
 function getHotelMinPrice(h) {
   // 兜底逻辑：优先用后端给的 min_price
@@ -77,6 +80,7 @@ export default function Hotels() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const reqIdRef = useRef(0);
+  const sentinelRef = useRef(null);  
 
   // 设施选项
   const [facilityOptions, setFacilityOptions] = useState([]);
@@ -101,16 +105,16 @@ export default function Hotels() {
 
     const params = {
       page,
-      limit: 10,
+      limit: PAGE_SIZE + 1, // 多请求一条用来判断 hasMore
       city: query.city || undefined,
       keyword: query.keyword?.trim() || undefined,
       check_in: query.check_in || undefined,
       check_out: query.check_out || undefined,
-      guests: query.guests || 2,
+      guests: query.guests || undefined,
       star_rating: query.star_rating ?? undefined,
       min_price: query.min_price ?? undefined,
       max_price: query.max_price ?? undefined,
-      facilities: query.facilities?.length ? query.facilities.join(",") : undefined,
+      facilities: stringifyFacilities(query.facilities),
       // ✅ 先把 sort 传给后端（后端支持就直接生效）
       sort: query.sort || undefined,
     };
@@ -122,8 +126,6 @@ export default function Hotels() {
         if (myReqId !== reqIdRef.current) return;
 
         const payload = res?.data ?? res;
-
-        // 兼容：payload.success / payload.data
         const ok = payload?.success ?? true;
         const data = payload?.data ?? payload;
 
@@ -133,11 +135,13 @@ export default function Hotels() {
           return;
         }
 
-        const list = Array.isArray(data?.hotels) ? data.hotels : [];
-        const has_more = !!data?.pagination?.has_more;
+        const listRaw = Array.isArray(data?.hotels) ? data.hotels : [];
+
+        const nextHasMore = listRaw.length > PAGE_SIZE;
+        const list = listRaw.slice(0, PAGE_SIZE);
 
         setHotels((prev) => (page === 1 ? list : [...prev, ...list]));
-        setHasMore(has_more);
+        setHasMore(nextHasMore);
       })
       .catch((err) => {
         console.error(err);
@@ -169,6 +173,32 @@ export default function Hotels() {
     query.sort,
   ]);
   console.log("query.facilities:", query.facilities);
+  console.log("当前 page:", page, "当前 hotels 数量:", hotels.length);
+  // 👇👇👇 新增：上滑自动加载
+useEffect(() => {
+  if (!hasMore || loading) return;
+
+  const el = sentinelRef.current;
+  if (!el) return;
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      const first = entries[0];
+      if (!first.isIntersecting) return;
+
+      setPage((p) => p + 1);
+    },
+    {
+      root: null,
+      rootMargin: "150px", // 提前加载
+      threshold: 0,
+    }
+  );
+
+  io.observe(el);
+  return () => io.disconnect();
+}, [hasMore, loading]);
+
   // ✅ 展示列表：不管后端是否支持排序，都做前端兜底排序
   const viewHotels = useMemo(() => {
     return sortHotels(hotels, query.sort);
@@ -271,16 +301,7 @@ export default function Hotels() {
 
             <div>
               <div style={{ marginBottom: 6, opacity: 0.8 }}>日期</div>
-              <RangePicker
-                style={{ width: "100%" }}
-                onChange={(dates) => {
-                  if (!dates) return updateQuery({ check_in: null, check_out: null });
-                  updateQuery({
-                    check_in: dates[0].format("YYYY-MM-DD"),
-                    check_out: dates[1].format("YYYY-MM-DD"),
-                  });
-                }}
-              />
+              <MobileDateRange query={query} updateQuery={updateQuery} />
             </div>
 
             <div>
@@ -289,8 +310,9 @@ export default function Hotels() {
                 min={1}
                 max={8}
                 style={{ width: "100%" }}
-                value={query.guests}
-                onChange={(v) => updateQuery({ guests: v || 2 })}
+                value={query.guests ?? null}
+                onChange={(v) => updateQuery({ guests: v ?? null })}
+                placeholder="入住人数"
               />
             </div>
 
@@ -408,11 +430,12 @@ export default function Hotels() {
           )}
         />
 
-        <div style={{ textAlign: "center", marginTop: 12 }}>
-          <Button block disabled={!hasMore} loading={loading} onClick={() => setPage((p) => p + 1)}>
-            {hasMore ? "加载更多" : "没有更多了"}
-          </Button>
+        <div style={{ textAlign: "center", marginTop: 12, opacity: 0.7 }}>
+          {loading ? "加载中..." : hasMore ? "上滑加载更多" : "没有更多了"}
         </div>
+
+        {/* 👇 触底哨兵：进入视口就会自动加载 */}
+        <div ref={sentinelRef} style={{ height: 1 }} />
 
         <div style={{ height: 16 }} />
       </div>

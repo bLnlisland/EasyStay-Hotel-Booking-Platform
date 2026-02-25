@@ -2,7 +2,6 @@ const { Hotel, RoomType, HotelImage, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 class HotelController {
-  // 获取酒店列表（公开接口） - 已实现完整筛选功能
   // 获取酒店列表（公开接口）- 已实现完整筛选功能 + keyword 模糊搜索
 static async getHotels(req, res) {
   try {
@@ -78,7 +77,9 @@ static async getHotels(req, res) {
         as: 'images',
         where: { is_main: true },
         required: false,
-        limit: 1
+        separate: true,      // ✅ 必加：否则 include.limit 会把分页搞乱
+        limit: 1,            // ✅ 只有配合 separate 才安全
+        duplicating: false,  // ✅ 建议加：避免 join 重复行影响分页
       },
       {
         model: RoomType,
@@ -87,7 +88,8 @@ static async getHotels(req, res) {
           is_available: true,
           max_guests: { [Op.gte]: parseInt(guests) } // 满足入住要求
         },
-        required: false
+        required: false,
+        duplicating: false, 
       }
     ];
 
@@ -102,13 +104,55 @@ static async getHotels(req, res) {
       subQuery: false // 避免子查询，提高性能
     };
 
-    // 查询酒店
-    const { count: totalCount, rows: hotels } = await Hotel.findAndCountAll(queryOptions);
+    const limitNum = parseInt(limit);
+    const offsetNum = (parseInt(page) - 1) * limitNum;
 
-    // 处理返回数据，计算最低价格和折扣信息
-    let processedHotels = hotels.map(hotel => {
-      return HotelController.processHotelData(hotel);
+    // 1) 只分页拿酒店 id（不要 include 1:N）
+    const { count: totalCount, rows: idRows } = await Hotel.findAndCountAll({
+      where,
+      attributes: ['id'],
+      order: [[sort_by, order]],
+      offset: offsetNum,
+      limit: limitNum,
+      distinct: true,
+      col: 'Hotel.id',
     });
+
+    const ids = idRows.map(r => r.id);
+
+    // 没有结果直接返回
+    if (ids.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          hotels: [],
+          pagination: {
+            total: totalCount,
+            page: parseInt(page),
+            limit: limitNum,
+            total_pages: Math.ceil(totalCount / limitNum),
+            has_more: parseInt(page) < Math.ceil(totalCount / limitNum),
+          },
+          filters: { applied: { city: city || null, keyword: keyword || null, check_in: check_in || null, check_out: check_out || null, guests: parseInt(guests), min_price: min_price ? parseFloat(min_price) : null, max_price: max_price ? parseFloat(max_price) : null, star_rating: star_rating ? parseInt(star_rating) : null, facilities: facilities || null } }
+        }
+      });
+    }
+
+    // 2) 再按 id 批量查详情（这一步随便 include）
+    const hotels = await Hotel.findAll({
+      where: { id: ids },
+      include: [
+        { model: User, as: 'merchant', attributes: ['id', 'username', 'full_name', 'phone', 'email'] },
+        { model: HotelImage, as: 'images', where: { is_main: true }, required: false, separate: true, limit: 1 },
+        { model: RoomType, as: 'room_types', where: { is_available: true }, required: false, order: [['base_price', 'ASC']] },
+      ],
+    });
+
+    // 保持分页顺序（findAll 的 IN 查询顺序不保证）
+    const orderMap = new Map(ids.map((id, idx) => [id, idx]));
+    hotels.sort((a, b) => orderMap.get(a.id) - orderMap.get(b.id));
+
+    let processedHotels = hotels.map(hotel => HotelController.processHotelData(hotel));
 
     // ========== 价格筛选（内存层） ==========
     if (min_price || max_price) {
@@ -496,8 +540,7 @@ static async searchHotels(req, res) {
       ],
       order: [['created_at', 'DESC']],
       offset,
-      limit: parseInt(limit),
-      subQuery: false
+      limit: parseInt(limit)
     };
     
     // 查询数据
@@ -579,6 +622,7 @@ static async searchHotels(req, res) {
           as: 'images',
           where: { is_main: true },
           required: false,
+          separate: true,
           limit: 1
         }],
         limit: parseInt(limit),
@@ -1084,7 +1128,9 @@ static async searchHotels(req, res) {
       const offset = (pageNum - 1) * limitNum;
 
       const whereClause = status ? { status } : { status: { [Op.ne]: 'deleted' } };
-
+      console.log("whereClause =", JSON.stringify(whereClause));
+      console.log("offset =", offset, "limitNum =", limitNum);
+      console.log("count =", count, "rows.length =", rows.length);
       const { count, rows } = await Hotel.findAndCountAll({
         where: whereClause,
         include: [{ model: User, as: 'merchant', attributes: ['id', 'username'] }],

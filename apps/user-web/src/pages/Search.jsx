@@ -1,7 +1,7 @@
 // src/pages/Search.jsx
 import { useEffect, useMemo, useState } from "react";
 import { http } from "../api/http";
-import { Row, Col, Select, DatePicker, Button, InputNumber, Tag, Input, Card, Divider } from "antd";
+import { Row, Col, Select, DatePicker, Button, InputNumber, Tag, Input, Card, Divider,Space, Grid } from "antd";
 import { useNavigate } from "react-router-dom";
 import { Carousel } from "antd";
 import FacilitiesPicker from "../components/FacilitiesPicker";
@@ -9,6 +9,7 @@ import { fetchFacilityOptions } from "../api/facilities";
 import { useHotelQuery } from "../hooks/useHotelQuery";
 import { useAmapCity } from "../hooks/useAmapCity";
 import { getHotelCover } from "../utils/hotelImages";
+import MobileDateRange from "../components/MobileDateRange";
 
 const FALLBACK_BANNERS = [
   { id: 1, title: "城市中心 · 高评分酒店", image: "https://images.unsplash.com/photo-1501117716987-c8e1ecb210b0" },
@@ -17,6 +18,7 @@ const FALLBACK_BANNERS = [
 ];
 
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 export default function Search() {
   const navigate = useNavigate();
@@ -159,20 +161,7 @@ export default function Search() {
 
           {/* 第二组：日期 */}
           <div style={{ marginTop: 10 }}>
-            <RangePicker
-              style={{ width: "100%" }}
-              value={dateValue}
-              onChange={(dates) => {
-                if (!dates) {
-                  updateQuery({ check_in: null, check_out: null });
-                  return;
-                }
-                updateQuery({
-                  check_in: dates[0].format("YYYY-MM-DD"),
-                  check_out: dates[1].format("YYYY-MM-DD"),
-                });
-              }}
-            />
+            <MobileDateRange query={query} updateQuery={updateQuery} />
           </div>
 
           {/* 第三组：人数 + 定位（两列） */}
@@ -182,8 +171,9 @@ export default function Search() {
                 min={1}
                 max={8}
                 style={{ width: "100%" }}
-                value={query.guests}
-                onChange={(v) => updateQuery({ guests: v || 2 })}
+                value={query.guests ?? null}
+                onChange={(v) => updateQuery({ guests: v ?? null })}
+                placeholder="入住人数"
               />
             </Col>
 

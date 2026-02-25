@@ -16,7 +16,7 @@ export default function HotelDetail() {
   const { id } = useParams();
 
   // 统一从 URL 读写参数
-  const { query, dateValue, setDates, toQueryString } = useHotelQueryParams({ guests: 2 });
+  const { query, dateValue, setDates, toQueryString } = useHotelQueryParams();
   const { check_in, check_out, guests } = query;
 
   // 返回列表：带着当前 query 回 /list
@@ -77,7 +77,7 @@ export default function HotelDetail() {
           const params = {
             check_in: check_in || undefined,
             check_out: check_out || undefined,
-            guests: guests || "2",
+            guests: guests || undefined,
           };
 
           const res = await fetchHotelDetail(id, params);
@@ -228,7 +228,7 @@ export default function HotelDetail() {
           >
             <div>最低价：{hotel.min_price ?? "—"}</div>
             <div>最高价：{hotel.max_price ?? "—"}</div>
-            <div style={{ fontWeight: 600, marginTop: 4 }}>预估总价：{hotel.estimated_total ?? "—"}</div>
+            {/* <div style={{ fontWeight: 600, marginTop: 4 }}>预估总价：{hotel.estimated_total ?? "—"}</div> */}
           </div>
 
           <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
