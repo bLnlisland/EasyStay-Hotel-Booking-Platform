@@ -19,6 +19,8 @@ router.get('/search/quick', HotelController.quickSearch);//快速搜索酒店（
 router.get('/prices/ranges', HotelController.getPriceRanges);// 获取价格区间（比如：500-1000元，1000-2000元等）
 router.get('/facilities/options', HotelController.getFacilityOptions);// 获取设施选项（如：Wi-Fi、游泳池、停车场等）
 router.get('/recommended', HotelController.getRecommendedHotels);// 获取推荐酒店列表（可能基于评分、推荐算法等）
+router.get('/', HotelController.getHotels);   // ✅ 别名：/api/hotels
+router.get('/public', HotelController.getHotels);
 
 // ==================== 管理员接口（仅 admin，必须放在 /:id 等通用路由之前，避免被误匹配） ====================
 router.get('/admin/all', auth, roleCheck('admin'), HotelController.getAllHotels);
