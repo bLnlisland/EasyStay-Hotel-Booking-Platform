@@ -10,8 +10,7 @@ import { useHotelQuery } from "../hooks/useHotelQuery";
 import { useAmapCity } from "../hooks/useAmapCity";
 import MobileDateRange from "../components/MobileDateRange";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-const { RangePicker } = DatePicker;
-const { useBreakpoint } = Grid;
+
 
 // 如果你还有 mock 需求可以保留，否则建议直接删掉 mock 分支
 const USE_MOCK = false;

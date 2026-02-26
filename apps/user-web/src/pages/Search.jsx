@@ -1,7 +1,7 @@
 // src/pages/Search.jsx
 import { useEffect, useMemo, useState } from "react";
 import { http } from "../api/http";
-import { Row, Col, Select, DatePicker, Button, InputNumber, Tag, Input, Card, Divider,Space, Grid } from "antd";
+import { Row, Col, Select, Button, InputNumber, Tag, Input, Card, Divider} from "antd";
 import { useNavigate } from "react-router-dom";
 import { Carousel } from "antd";
 import FacilitiesPicker from "../components/FacilitiesPicker";
@@ -17,8 +17,6 @@ const FALLBACK_BANNERS = [
   { id: 3, title: "度假必住酒店", image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa" },
 ];
 
-const { RangePicker } = DatePicker;
-const { useBreakpoint } = Grid;
 
 export default function Search() {
   const navigate = useNavigate();
@@ -49,8 +47,6 @@ export default function Search() {
 
   // 推荐 banner
   useEffect(() => {
-    const baseURL = http?.defaults?.baseURL || "http://localhost:3000/api";
-
     http
     .get("/hotels/recommended")
     .then((res) => {
@@ -71,10 +67,6 @@ export default function Search() {
     });
   }, []);
 
-  const dateValue = useMemo(() => {
-    // 你用的是 antd + dayjs；RangePicker 不传 value 也行（这里先不强绑）
-    return null;
-  }, []);
 
   // ✅ 价格区间回显
   const priceBucketValue = useMemo(() => {
