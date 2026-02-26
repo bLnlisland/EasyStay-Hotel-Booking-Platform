@@ -2,7 +2,7 @@
 
 ## 基础信息
 
-- **基础URL**: `http://localhost:3000/api`
+- **基础URL**: `https://easy-stay.online/api`
 - **认证方式**: Bearer Token (JWT)
 - **响应格式**: JSON
 - **状态码说明**:
