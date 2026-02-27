@@ -10,7 +10,7 @@ static async getHotels(req, res) {
       keyword,        // 🆕 新增：关键词搜索（酒店名/地址/描述）
       check_in,       // 入住日期 YYYY-MM-DD
       check_out,      // 离店日期 YYYY-MM-DD
-      guests = 2,
+      guests,
       min_price,
       max_price,
       star_rating,
@@ -86,7 +86,9 @@ static async getHotels(req, res) {
         as: 'room_types',
         where: {
           is_available: true,
-          max_guests: { [Op.gte]: parseInt(guests) } // 满足入住要求
+          ...(guests ? {
+            max_guests: { [Op.gte]: parseInt(guests) }
+          } : {})
         },
         required: false,
         duplicating: false, 
@@ -107,6 +109,66 @@ static async getHotels(req, res) {
     const limitNum = parseInt(limit);
     const offsetNum = (parseInt(page) - 1) * limitNum;
 
+    // ===== 价格排序专用分支（解决方案1）=====
+    if (sort_by === 'min_price') {
+
+      const allHotels = await Hotel.findAll({
+        where,
+        include: [
+          { model: User, as: 'merchant', attributes: ['id', 'username', 'full_name'] },
+          { model: HotelImage, as: 'images', where: { is_main: true }, required: false, separate: true, limit: 1 },
+          {
+            model: RoomType,
+            as: 'room_types',
+            where: {
+              is_available: true,
+              max_guests: { [Op.gte]: parseInt(guests) || 2 }
+            },
+            required: false,
+            order: [['base_price', 'ASC']]
+          },
+        ],
+      });
+
+      let processed = allHotels.map(h => HotelController.processHotelData(h));
+
+      // 价格筛选
+      if (min_price || max_price) {
+        const minP = min_price ? parseFloat(min_price) : 0;
+        const maxP = max_price ? parseFloat(max_price) : Infinity;
+        processed = processed.filter(h => h.min_price != null && h.min_price >= minP && h.min_price <= maxP);
+      }
+
+      // 排序
+      const dir = order === 'desc' ? -1 : 1;
+      processed.sort((a, b) => {
+        const ap = a.min_price ?? Infinity;
+        const bp = b.min_price ?? Infinity;
+        return (ap - bp) * dir;
+      });
+
+      // 内存分页
+      const limitNum = parseInt(limit);
+      const pageNum = parseInt(page);
+      const total = processed.length;
+      const totalPages = Math.ceil(total / limitNum);
+      const start = (pageNum - 1) * limitNum;
+
+      return res.json({
+        success: true,
+        data: {
+          hotels: processed.slice(start, start + limitNum),
+          pagination: {
+            total,
+            page: pageNum,
+            limit: limitNum,
+            total_pages: totalPages,
+            has_more: pageNum < totalPages
+          }
+        }
+      });
+    }
+    
     // 1) 只分页拿酒店 id（不要 include 1:N）
     const { count: totalCount, rows: idRows } = await Hotel.findAndCountAll({
       where,
@@ -213,7 +275,7 @@ static async getHotels(req, res) {
   static async getHotelById(req, res) {
     try {
       const { id } = req.params;
-      const { check_in, check_out } = req.query;
+      const { check_in, check_out,guests } = req.query;
       // 使用findByPk获取单个酒店，包含所有关联数据
       const hotel = await Hotel.findByPk(id, {
         include: [
@@ -255,13 +317,16 @@ static async getHotels(req, res) {
 
       // 处理酒店数据
       const hotelData = HotelController.processHotelData(hotel);
+      const guestsNum = guests ? parseInt(guests) : null;
 
       // 处理房型详细信息（价格即 base_price，含面积）
       if (hotelData.room_types) {
         hotelData.room_types = hotelData.room_types.map(room => ({
           ...room,
           is_available_for_dates: true,
-          is_available_for_guests: room.max_guests >= parseInt(guests)
+          is_available_for_guests: guestsNum
+  ? room.max_guests >= guestsNum
+  : true
         }));
 
         if (hotelData.room_types.length > 0) {
@@ -1130,7 +1195,7 @@ static async searchHotels(req, res) {
       const whereClause = status ? { status } : { status: { [Op.ne]: 'deleted' } };
       console.log("whereClause =", JSON.stringify(whereClause));
       console.log("offset =", offset, "limitNum =", limitNum);
-      console.log("count =", count, "rows.length =", rows.length);
+  
       const { count, rows } = await Hotel.findAndCountAll({
         where: whereClause,
         include: [{ model: User, as: 'merchant', attributes: ['id', 'username'] }],
@@ -1139,7 +1204,7 @@ static async searchHotels(req, res) {
         limit: limitNum,
         distinct: true
       });
-
+      console.log("count =", count, "rows.length =", rows.length);
       const totalPages = Math.ceil(count / limitNum);
       const hotels = rows.map(h => {
         const raw = h.get ? h.get({ plain: true }) : h;

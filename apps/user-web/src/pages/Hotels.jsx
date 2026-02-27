@@ -115,7 +115,9 @@ export default function Hotels() {
       max_price: query.max_price ?? undefined,
       facilities: stringifyFacilities(query.facilities),
       // ✅ 先把 sort 传给后端（后端支持就直接生效）
-      sort: query.sort || undefined,
+      ...(query.sort === "price_asc" && { sort_by: "min_price", order: "asc" }),
+      ...(query.sort === "price_desc" && { sort_by: "min_price", order: "desc" }),
+      ...(query.sort === "star_desc" && { sort_by: "star_rating", order: "desc" }),
     };
 
     http
@@ -196,10 +198,7 @@ useEffect(() => {
   return () => io.disconnect();
 }, [hasMore, loading]);
 
-  // ✅ 展示列表：不管后端是否支持排序，都做前端兜底排序
-  const viewHotels = useMemo(() => {
-    return sortHotels(hotels, query.sort);
-  }, [hotels, query.sort]);
+  const viewHotels = hotels;
 
   //返回搜索页
   const navigate = useNavigate();

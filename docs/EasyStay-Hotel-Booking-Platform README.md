@@ -343,6 +343,134 @@ server {
         proxy_pass http://localhost:3000/uploads;
     }
 }
+🌐 线上生产环境部署
+一、线上访问地址
+项目已完成公网部署，您可以通过以下地址直接访问：
+
+服务	地址	说明
+用户主站	https://easy-stay.online	用户端前台
+管理后台	https://easy-stay.online/admin	商户/管理员后台
+后端 API	https://easy-stay.online/api	API 接口（可用于调试）
+✅ 已启用 HTTPS（Let's Encrypt 证书），全站加密访问。
+
+二、部署环境
+组件	技术选型
+云服务器	腾讯云 CVM (Ubuntu 20.04+)
+Web 服务器	Nginx
+后端运行	Node.js + Express
+数据库	MySQL + Sequelize ORM
+进程管理	systemd
+SSL 证书	Certbot (Let's Encrypt)，自动续期
+三、整体架构设计
+text
+https://easy-stay.online
+├── /                → 用户端前端（静态文件，/var/www/user）
+├── /admin           → 管理端前端（静态文件，/var/www/admin）
+└── /api             → 反向代理到后端服务（127.0.0.1:3000）
+架构亮点：
+
+✅ 前后端同域部署：彻底规避跨域问题
+
+✅ 统一 API 入口：前端统一使用 /api 作为接口前缀
+
+✅ 多前端同域共存：通过路径区分用户端和管理端
+
+✅ HTTPS 全站加密：安全可靠
+
+四、后端部署说明
+4.1 运行环境
+后端服务运行在 127.0.0.1:3000
+
+使用 systemd 保证常驻运行与自动重启
+
+生产环境变量配置（NODE_ENV=production）
+
+4.2 systemd 服务配置
+创建服务文件 /etc/systemd/system/hotel-backend.service：
+
+ini
+[Unit]
+Description=EasyStay Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/path/to/your/server
+ExecStart=/usr/bin/npm run start
+Restart=always
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+启用服务：
+sudo systemctl enable hotel-backend
+sudo systemctl start hotel-backend
+五、前端部署说明
+5.1 用户端 (user-web)
+bash
+cd apps/user-web
+npm install
+npm run build
+# 将 build/ 目录部署到服务器 /var/www/user
+5.2 管理端 (admin-web)
+bash
+cd apps/admin-web
+npm install
+npm run build
+# 将 build/ 目录部署到服务器 /var/www/admin
+六、Nginx 配置
+nginx
+server {
+    listen 443 ssl http2;
+    server_name easy-stay.online;
+
+    # SSL 证书配置（Certbot 自动生成）
+    ssl_certificate /etc/letsencrypt/live/easy-stay.online/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/easy-stay.online/privkey.pem;
+
+    # 用户端
+    location / {
+        root /var/www/user;
+        try_files $uri /index.html;
+    }
+
+    # 管理端
+    location /admin {
+        alias /var/www/admin;
+        try_files $uri /admin/index.html;
+    }
+
+    # API 代理
+    location /api {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# HTTP 重定向到 HTTPS
+server {
+    listen 80;
+    server_name easy-stay.online;
+    return 301 https://$server_name$request_uri;
+}
+七、部署状态与验证
+检查项	状态	验证方式
+用户端访问	✅ 正常	访问 https://easy-stay.online
+管理端访问	✅ 正常	访问 https://easy-stay.online/admin
+API 响应	✅ 正常	访问 https://easy-stay.online/api/hotels/public
+HTTPS 证书	✅ 有效	浏览器地址栏显示安全锁标志
+证书自动续期	✅ 已配置	Certbot 定时任务运行中
+八、部署亮点总结
+✅ 完整生产化部署：从本地开发到云端上线的全流程实践
+✅ 前后端同域架构：优雅解决跨域，简化前端配置
+✅ 多前端同域共存：用户端与管理端共用同一域名
+✅ HTTPS 安全加密：Let's Encrypt 证书，自动续期
+✅ 进程守护：systemd 保证后端服务 7×24 小时可用
+✅ 一键构建部署：前端构建脚本清晰，部署流程可复现
 ❓ 常见问题
 Q：前端请求后端出现跨域错误？
 A：后端已配置 CORS，允许所有来源。若使用 Nginx 反向代理，请确保 proxy_pass 正确。

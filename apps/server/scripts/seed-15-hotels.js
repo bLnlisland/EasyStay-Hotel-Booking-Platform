@@ -35,7 +35,7 @@ async function main() {
     { city: "成都", province: "四川", lat: 30.5728, lng: 104.0668 },
   ];
 
-  const hotelFacilitiesPool = ["wifi", "parking", "breakfast", "gym", "pool", "family", "luxury"];
+  const hotelFacilitiesPool = ["wifi", "parking", "breakfast", "gym", "pool", "meeting_rooms", "family_rooms"];
 
   const roomFacilitiesPool = ["wifi", "breakfast", "aircon", "tv", "shower", "bathtub"];
 
@@ -104,10 +104,58 @@ async function main() {
     const createdHotels = await Hotel.bulkCreate(hotelsPayload, { transaction: t });
     console.log(`✅ 创建 hotels：${createdHotels.length} 条`);
 
-    // 4) 创建房型（对齐 room_types 表字段）
+    // 4) 创建房型（更真实的价格：按星级分布 + 稳定随机 + 不按序号）
     const roomTypesPayload = [];
+
+    // 稳定随机（每次 seed 结果一致）
+    function createSeededRandom(seed) {
+      return function () {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+      };
+    }
+    const rand = createSeededRandom(20260228);
+
+    function randomBetween(min, max) {
+      return Math.floor(rand() * (max - min + 1)) + min;
+    }
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+    // 四舍五入到 10 元，看起来更像酒店定价
+    function roundTo10(n) {
+      return Math.round(n / 10) * 10;
+    }
+
     for (const h of createdHotels) {
-      // 每家两个房型
+      // 星级（1~5）决定基础价位区间（真实一点）
+      const star = Number(h.star_rating) || 3;
+
+      // 每个星级的“标准间”大致区间（你可以按需要微调）
+      const starBand = {
+        1: [160, 240],
+        2: [220, 320],
+        3: [300, 450],
+        4: [420, 650],
+        5: [600, 980],
+      };
+
+      const [minBase, maxBase] = starBand[star] || [300, 450];
+
+      // 酒店级别的“个体差异”（同星级也会有高有低），不按序号
+      const hotelBias = randomBetween(-30, 60); // 有的便宜点，有的贵点
+
+      // 标准间价格：星级区间 + 酒店偏移 + 小波动
+      let standardPrice = randomBetween(minBase, maxBase) + hotelBias + randomBetween(-20, 30);
+      standardPrice = roundTo10(clamp(standardPrice, 120, 1200));
+
+      // 大床房：在标准间基础上加价（同酒店层级差）
+      let kingPrice = standardPrice + randomBetween(60, 180);
+      kingPrice = roundTo10(clamp(kingPrice, standardPrice + 40, 1600));
+
+      // 折扣：高星一般折扣少一点（更真实），低星折扣更常见
+      const kingDiscount = star >= 4 ? 0.95 : 0.9;
+
       roomTypesPayload.push(
         {
           hotel_id: h.id,
@@ -117,7 +165,7 @@ async function main() {
           max_guests: 2,
           bed_type: "双床",
           facilities: roomFacilitiesPool.slice(0, 4),
-          base_price: 299.0,
+          base_price: Number(standardPrice.toFixed(2)),
           discount_rate: 1.0,
           available_count: 20,
           is_available: 1,
@@ -130,8 +178,8 @@ async function main() {
           max_guests: 2,
           bed_type: "大床",
           facilities: roomFacilitiesPool.slice(0, 5),
-          base_price: 399.0,
-          discount_rate: 0.9,
+          base_price: Number(kingPrice.toFixed(2)),
+          discount_rate: kingDiscount,
           available_count: 15,
           is_available: 1,
         }
