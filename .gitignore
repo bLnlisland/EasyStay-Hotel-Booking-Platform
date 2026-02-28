@@ -31,4 +31,4 @@ dist/
 apps/admin-web/build/
 **/build/
 
-apps/server/uploads/
+# apps/server/uploads/
